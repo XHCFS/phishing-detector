@@ -5,3 +5,4 @@ imapclient==3.0.1
 mail-parser==3.15.0
 requests==2.32.3
 python-dotenv==1.0.1
+

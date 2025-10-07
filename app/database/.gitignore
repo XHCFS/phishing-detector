@@ -1,0 +1,21 @@
+# Environment variables (contains API keys)
+.env
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
