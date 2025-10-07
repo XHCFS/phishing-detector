@@ -23,6 +23,6 @@ Then run the setup script, and, as instructed, run
 
 ```bash 
 ./setup.sh
-source .venv/bin/activate && ./run.sh
+./run.sh
 ```
 

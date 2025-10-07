@@ -39,6 +39,7 @@ echo "Installing dependencies..."
 pip install -r requirements.txt
 
 # Optional database initialization
+source .venv/bin/activate 
 if python3 -c "from app.database.db import init_db; init_db()" 2>/dev/null; then
     echo "Database initialized successfully."
 else
@@ -47,5 +48,5 @@ fi
 
 echo "Setup complete."
 echo "To run the application, execute:"
-echo "  source $ACTIVATE && ./run.sh"
+echo "./run.sh"
 
