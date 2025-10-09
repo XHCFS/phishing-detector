@@ -117,9 +117,15 @@ DB_DIR = Path(__file__).parent
 RAW_DB_PATH = DB_DIR / "threat_feeds_raw.db"
 ENRICHED_DB_PATH = DB_DIR / "threat_feeds.db"
 
+# Debug logger (will be configured later based on --debug flag)
+debug_logger = logging.getLogger('enrichment_debug')
+debug_logger.setLevel(logging.CRITICAL)  # Disabled by default
+debug_logger.addHandler(logging.NullHandler())  # No output by default
+
 # GeoIP database paths (MaxMind GeoLite2)
 GEOIP_CITY_DB = DB_DIR / "GeoLite2-City.mmdb"
 GEOIP_ASN_DB = DB_DIR / "GeoLite2-ASN.mmdb"
+GEOIP_COUNTRY_DB = DB_DIR / "GeoLite2-Country.mmdb"
 
 # Rate limiting and timeouts (HYPER-AGGRESSIVE - LUDICROUS SPEED)
 WHOIS_DELAY = 0.0  # No delays
@@ -136,6 +142,7 @@ BATCH_INSERT_SIZE = 200  # Doubled for fewer DB operations
 # Global caches for performance
 _geoip_city_reader = None
 _geoip_asn_reader = None
+_geoip_country_reader = None
 _http_session = None  # Reusable requests session
 _dns_cache = {}  # DNS resolution cache for repeated domains
 
@@ -160,6 +167,14 @@ def get_geoip_asn_reader():
     if _geoip_asn_reader is None and GEOIP_AVAILABLE and GEOIP_ASN_DB.exists():
         _geoip_asn_reader = geoip2.database.Reader(str(GEOIP_ASN_DB))
     return _geoip_asn_reader
+
+
+def get_geoip_country_reader():
+    """Get cached GeoIP Country reader."""
+    global _geoip_country_reader
+    if _geoip_country_reader is None and GEOIP_AVAILABLE and GEOIP_COUNTRY_DB.exists():
+        _geoip_country_reader = geoip2.database.Reader(str(GEOIP_COUNTRY_DB))
+    return _geoip_country_reader
 
 
 def get_http_session():
@@ -272,13 +287,23 @@ def resolve_ip(domain: str) -> Optional[str]:
     
     # Check cache first (HUGE speedup for repeated domains)
     if domain in _dns_cache:
-        return _dns_cache[domain]
+        cached_result = _dns_cache[domain]
+        if cached_result:
+            debug_logger.debug(f"resolve_ip: Cache hit for {domain} -> {cached_result}")
+        return cached_result
     
+    debug_logger.debug(f"resolve_ip: Looking up {domain}")
     try:
         ip = socket.gethostbyname(domain)
         _dns_cache[domain] = ip  # Cache result
+        debug_logger.debug(f"resolve_ip: Success for {domain} -> {ip}")
         return ip
-    except (socket.gaierror, socket.timeout):
+    except socket.gaierror as e:
+        debug_logger.warning(f"resolve_ip: DNS lookup failed for {domain}: {e}")
+        _dns_cache[domain] = None  # Cache failures too
+        return None
+    except socket.timeout as e:
+        debug_logger.warning(f"resolve_ip: DNS timeout for {domain}: {e}")
         _dns_cache[domain] = None  # Cache failures too
         return None
 
@@ -380,9 +405,11 @@ def get_whois_info(domain: str) -> Dict[str, Any]:
 def get_geoip_info(ip_address: str) -> Dict[str, Any]:
     """Get GeoIP information for IP address (using cached readers)."""
     if not ip_address:
+        debug_logger.debug(f"get_geoip_info: No IP address provided")
         return {}
 
     result = {}
+    debug_logger.debug(f"get_geoip_info: Starting lookup for {ip_address}")
 
     # Try GeoIP databases if available (use cached readers for speed)
     if GEOIP_AVAILABLE:
@@ -400,8 +427,29 @@ def get_geoip_info(ip_address: str) -> Dict[str, Any]:
                     'latitude': response.location.latitude,
                     'longitude': response.location.longitude,
                 })
-            except (geoip2.errors.AddressNotFoundError, Exception):
-                pass
+                debug_logger.debug(f"get_geoip_info: City lookup successful for {ip_address} - {result.get('country')}")
+            except geoip2.errors.AddressNotFoundError as e:
+                debug_logger.debug(f"get_geoip_info: Address not found in City DB for {ip_address}")
+            except Exception as e:
+                debug_logger.warning(f"get_geoip_info: City lookup failed for {ip_address}: {type(e).__name__}: {e}")
+        else:
+            debug_logger.debug(f"get_geoip_info: No City reader available")
+        
+        # If no country from City DB, try Country database
+        if not result.get('country'):
+            country_reader = get_geoip_country_reader()
+            if country_reader:
+                try:
+                    response = country_reader.country(ip_address)
+                    result.update({
+                        'country': response.country.iso_code,
+                        'country_name': response.country.name,
+                    })
+                    debug_logger.debug(f"get_geoip_info: Country lookup successful for {ip_address} - {result.get('country')}")
+                except geoip2.errors.AddressNotFoundError as e:
+                    debug_logger.debug(f"get_geoip_info: Address not found in Country DB for {ip_address}")
+                except Exception as e:
+                    debug_logger.warning(f"get_geoip_info: Country lookup failed for {ip_address}: {type(e).__name__}: {e}")
 
         # Try ASN database
         asn_reader = get_geoip_asn_reader()
@@ -412,16 +460,25 @@ def get_geoip_info(ip_address: str) -> Dict[str, Any]:
                     'asn': response.autonomous_system_number,
                     'asn_name': response.autonomous_system_organization,
                 })
-            except (geoip2.errors.AddressNotFoundError, Exception):
-                pass
+                debug_logger.debug(f"get_geoip_info: ASN lookup successful for {ip_address} - AS{result.get('asn')} {result.get('asn_name')}")
+            except geoip2.errors.AddressNotFoundError as e:
+                debug_logger.debug(f"get_geoip_info: Address not found in ASN DB for {ip_address}")
+            except Exception as e:
+                debug_logger.warning(f"get_geoip_info: ASN lookup failed for {ip_address}: {type(e).__name__}: {e}")
+        else:
+            debug_logger.debug(f"get_geoip_info: No ASN reader available")
+    else:
+        debug_logger.debug(f"get_geoip_info: GeoIP not available")
 
     # Fallback to free IP-API service if we don't have GeoIP data
     if not result and REQUESTS_AVAILABLE:
+        debug_logger.debug(f"get_geoip_info: Trying IP-API fallback for {ip_address}")
         try:
             response = requests.get(
                 f'http://ip-api.com/json/{ip_address}',
                 timeout=5
             )
+            debug_logger.debug(f"get_geoip_info: IP-API response status {response.status_code} for {ip_address}")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -438,23 +495,35 @@ def get_geoip_info(ip_address: str) -> Dict[str, Any]:
                             1:]) if data.get('as') else None,
                         'isp': data.get('isp'),
                     })
+                    debug_logger.debug(f"get_geoip_info: IP-API success for {ip_address} - {result}")
                     time.sleep(0.5)  # Rate limit for free API
-        except Exception:
-            pass
+                else:
+                    debug_logger.warning(f"get_geoip_info: IP-API returned failure status for {ip_address}: {data}")
+        except Exception as e:
+            debug_logger.warning(f"get_geoip_info: IP-API exception for {ip_address}: {type(e).__name__}: {e}")
 
+    if not result:
+        debug_logger.warning(f"get_geoip_info: No GeoIP data found for {ip_address}")
+    
     return result
 
 
 def get_asn_info_ipwhois(ip_address: str) -> Dict[str, Any]:
     """Get ASN/ISP information using IPWhois (fallback method)."""
-    if not IPWHOIS_AVAILABLE or not ip_address:
+    if not IPWHOIS_AVAILABLE:
+        debug_logger.debug(f"get_asn_info_ipwhois: IPWhois not available")
+        return {}
+    
+    if not ip_address:
+        debug_logger.debug(f"get_asn_info_ipwhois: No IP address provided")
         return {}
 
+    debug_logger.debug(f"get_asn_info_ipwhois: Starting RDAP lookup for {ip_address}")
     try:
         obj = IPWhois(ip_address)
         result = obj.lookup_rdap(depth=1)
-
-        return {
+        
+        parsed_result = {
             'asn': int(result.get('asn', '').replace(
                 'AS', '')) if result.get('asn') else None,
             'asn_name': result.get('asn_description'),
@@ -462,7 +531,10 @@ def get_asn_info_ipwhois(ip_address: str) -> Dict[str, Any]:
             'isp': result.get('network', {}).get('name'),
             'country': result.get('asn_country_code'),
         }
-    except Exception:
+        debug_logger.debug(f"get_asn_info_ipwhois: Success for {ip_address} - AS{parsed_result.get('asn')} {parsed_result.get('asn_name')}")
+        return parsed_result
+    except Exception as e:
+        debug_logger.warning(f"get_asn_info_ipwhois: Failed for {ip_address}: {type(e).__name__}: {e}")
         return {}
 
 
@@ -847,6 +919,8 @@ async def enrich_url_async(
     - Thread pool only for truly blocking operations (WHOIS, IPWhois)
     - Cached readers for GeoIP (no file reopening)
     """
+    debug_logger.debug(f"enrich_url_async: Starting enrichment for {url}")
+    
     data = EnrichmentData()
     data.url = url
     data.source_feed = source_feed
@@ -855,9 +929,11 @@ async def enrich_url_async(
     # Extract domain (sync, instant)
     data.domain = extract_domain(url)
     if not data.domain:
+        debug_logger.warning(f"enrich_url_async: Failed to extract domain from {url}")
         return data
 
     data.tld = extract_tld(data.domain)
+    debug_logger.debug(f"enrich_url_async: Domain={data.domain}, TLD={data.tld}")
 
     # Copy existing data from raw database if available
     if existing_data:
@@ -909,6 +985,10 @@ async def enrich_url_async(
     
     if dns_task:
         data.ip_address = await dns_task
+        if data.ip_address:
+            debug_logger.debug(f"enrich_url_async: DNS resolved {data.domain} -> {data.ip_address}")
+        else:
+            debug_logger.warning(f"enrich_url_async: DNS resolution failed for {data.domain}")
     
     # ========================================================================
     # PHASE 3: Start IP-dependent operations in parallel
@@ -918,17 +998,30 @@ async def enrich_url_async(
     geoip_task = None
     if data.ip_address:
         # Run GeoIP in thread pool to not block event loop
+        debug_logger.debug(f"enrich_url_async: Starting GeoIP lookup for {data.ip_address}")
         geoip_task = loop.run_in_executor(
             executor, get_geoip_info, data.ip_address
         )
+    else:
+        debug_logger.debug(f"enrich_url_async: Skipping GeoIP - no IP address for {data.domain}")
     
     # IPWhois lookup (blocking, in thread pool) - OPTIONAL (can be slow!)
     ipwhois_task = None
     if (enable_ipwhois and data.ip_address and IPWHOIS_AVAILABLE and
             (not data.asn or not data.cidr_block)):
+        debug_logger.debug(f"enrich_url_async: Starting IPWhois lookup for {data.ip_address}")
         ipwhois_task = loop.run_in_executor(
             executor, get_asn_info_ipwhois, data.ip_address
         )
+    else:
+        if not enable_ipwhois:
+            debug_logger.debug(f"enrich_url_async: IPWhois disabled")
+        elif not data.ip_address:
+            debug_logger.debug(f"enrich_url_async: Skipping IPWhois - no IP address")
+        elif not IPWHOIS_AVAILABLE:
+            debug_logger.debug(f"enrich_url_async: IPWhois not available")
+        else:
+            debug_logger.debug(f"enrich_url_async: Skipping IPWhois - already have ASN={data.asn} CIDR={data.cidr_block}")
     
     # ========================================================================
     # PHASE 4: Gather ALL results in parallel (asyncio.gather)
@@ -962,7 +1055,9 @@ async def enrich_url_async(
         pending_tasks.append(ipwhois_task)
     
     # Wait for ALL tasks to complete in parallel
+    debug_logger.debug(f"enrich_url_async: Waiting for {len(pending_tasks)} tasks for {data.domain}")
     results = await asyncio.gather(*pending_tasks, return_exceptions=True)
+    debug_logger.debug(f"enrich_url_async: All tasks completed for {data.domain}")
     
     # ========================================================================
     # PHASE 5: Process results (using task_map for correct indexing)
@@ -975,6 +1070,7 @@ async def enrich_url_async(
         
         result = results[idx]
         if isinstance(result, Exception):
+            debug_logger.warning(f"enrich_url_async: Task {task_type} failed for {data.domain}: {type(result).__name__}: {result}")
             continue
         
         if task_type == 'whois' and result:
@@ -1003,6 +1099,7 @@ async def enrich_url_async(
             data.page_language = result.get('page_language')
         
         elif task_type == 'geoip' and result:
+            debug_logger.debug(f"enrich_url_async: Processing GeoIP result for {data.domain}: {result}")
             data.country = data.country or result.get('country')
             data.country_name = result.get('country_name')
             data.region = result.get('region')
@@ -1011,13 +1108,18 @@ async def enrich_url_async(
             data.longitude = result.get('longitude')
             data.asn = data.asn or result.get('asn')
             data.asn_name = result.get('asn_name')
+            if not result:
+                debug_logger.warning(f"enrich_url_async: GeoIP returned empty result for {data.ip_address}")
         
         elif task_type == 'ipwhois' and result:
+            debug_logger.debug(f"enrich_url_async: Processing IPWhois result for {data.domain}: {result}")
             data.asn = data.asn or result.get('asn')
             data.asn_name = data.asn_name or result.get('asn_name')
             data.cidr_block = data.cidr_block or result.get('cidr_block')
             data.isp = data.isp or result.get('isp')
             data.country = data.country or result.get('country')
+            if not result:
+                debug_logger.warning(f"enrich_url_async: IPWhois returned empty result for {data.ip_address}")
     
     # ========================================================================
     # PHASE 6: Post-processing and inference
@@ -1051,6 +1153,19 @@ async def enrich_url_async(
     
     # Set timestamps
     data.last_seen = datetime.now(timezone.utc).isoformat()
+    
+    # Final debug summary for this URL
+    debug_logger.debug(
+        f"enrich_url_async: Completed {url} - "
+        f"IP={data.ip_address}, ASN={data.asn}, ISP={data.isp}, "
+        f"Country={data.country}, Online={data.online}"
+    )
+    
+    # Log warning if critical data is missing
+    if data.ip_address and not data.asn:
+        debug_logger.warning(f"enrich_url_async: Missing ASN for {url} (IP: {data.ip_address})")
+    if data.ip_address and not data.isp:
+        debug_logger.warning(f"enrich_url_async: Missing ISP for {url} (IP: {data.ip_address})")
     
     return data
 
@@ -1289,7 +1404,8 @@ async def process_batch_async(
         executor: ThreadPoolExecutor,
         enable_whois: bool = True,
         enable_ipwhois: bool = True,
-        enable_page_content: bool = True
+        enable_page_content: bool = True,
+        stats: Optional[Dict[str, int]] = None
 ) -> Tuple[int, int, int]:
     """
     Process a batch of URLs concurrently.
@@ -1340,6 +1456,32 @@ async def process_batch_async(
             else:
                 enriched_data_list.append(result)
                 processed += 1
+                
+                # Track statistics about null values
+                if stats is not None:
+                    if result.ip_address:
+                        stats['has_ip'] += 1
+                    else:
+                        stats['missing_ip'] += 1
+                    
+                    if result.asn:
+                        stats['has_asn'] += 1
+                    else:
+                        stats['missing_asn'] += 1
+                        if result.ip_address:
+                            stats['missing_asn_with_ip'] += 1
+                    
+                    if result.isp:
+                        stats['has_isp'] += 1
+                    else:
+                        stats['missing_isp'] += 1
+                        if result.ip_address:
+                            stats['missing_isp_with_ip'] += 1
+                    
+                    if result.country:
+                        stats['has_country'] += 1
+                    else:
+                        stats['missing_country'] += 1
     
     # Batch insert all results
     if enriched_data_list:
@@ -1356,16 +1498,31 @@ async def process_all_async(
         max_workers: int = MAX_WORKER_THREADS,
         enable_whois: bool = True,
         enable_ipwhois: bool = True,
-        enable_page_content: bool = True
-) -> Tuple[int, int, int]:
+        enable_page_content: bool = True,
+        debug_enabled: bool = False
+) -> Tuple[int, int, int, Dict[str, int]]:
     """
     Process all URLs with concurrent batching.
     
-    Returns: (total_processed, total_skipped, total_failed)
+    Returns: (total_processed, total_skipped, total_failed, stats)
     """
     total_processed = 0
     total_skipped = 0
     total_failed = 0
+    
+    # Statistics tracking for null values
+    stats = {
+        'has_ip': 0,
+        'missing_ip': 0,
+        'has_asn': 0,
+        'missing_asn': 0,
+        'missing_asn_with_ip': 0,
+        'has_isp': 0,
+        'missing_isp': 0,
+        'missing_isp_with_ip': 0,
+        'has_country': 0,
+        'missing_country': 0,
+    }
     
     # Create thread pool for blocking operations
     executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -1383,7 +1540,7 @@ async def process_all_async(
             
             processed, skipped, failed = await process_batch_async(
                 batch, enriched_db, skip_existing, executor,
-                enable_whois, enable_ipwhois, enable_page_content
+                enable_whois, enable_ipwhois, enable_page_content, stats
             )
             
             total_processed += processed
@@ -1393,7 +1550,7 @@ async def process_all_async(
     finally:
         executor.shutdown(wait=True)
     
-    return total_processed, total_skipped, total_failed
+    return total_processed, total_skipped, total_failed, stats
 
 
 def main():
@@ -1459,6 +1616,11 @@ def main():
         action='store_true',
         help='Disable page content fetching for speed (loses title/language)'
     )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug logging to file (enrichment_debug.log)'
+    )
     args = parser.parse_args()
 
     raw_db = Path(args.raw_db)
@@ -1472,6 +1634,17 @@ def main():
         logger.error(f"Enriched database not found: {enriched_db}")
         logger.info("Run 'python -m app.database.db' to create it")
         return 1
+
+    # Configure debug logging if --debug flag is set
+    if args.debug:
+        debug_logger.setLevel(logging.DEBUG)
+        debug_logger.handlers.clear()
+        debug_handler = logging.FileHandler(DB_DIR / 'enrichment_debug.log')
+        debug_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s'
+        ))
+        debug_logger.addHandler(debug_handler)
+        logger.info("Debug logging enabled -> enrichment_debug.log")
 
     # Warn about missing optional dependencies
     if not WHOIS_AVAILABLE:
@@ -1566,19 +1739,22 @@ def main():
         print(f"   • Page content: {page_status}")
         print(f"{'='*60}\n")
         
+        stats = {}
         try:
-            processed, skipped, failed = asyncio.run(
+            processed, skipped, failed, stats = asyncio.run(
                 process_all_async(
                     raw_urls, enriched_db, args.skip_existing,
                     max_concurrent, max_workers,
                     not args.disable_whois,
                     not args.disable_ipwhois,
-                    not args.disable_page_content
+                    not args.disable_page_content,
+                    args.debug
                 )
             )
         except KeyboardInterrupt:
             print("\nInterrupted by user")
             processed = skipped = failed = 0
+            stats = {}
 
     elapsed = time.time() - start_time if 'start_time' in locals() else 0
     
@@ -1597,6 +1773,36 @@ def main():
         print(f"   • Speed:      {len(raw_urls)/elapsed:.1f} URLs/sec")
         if processed > 0:
             print(f"   • Avg/URL:    {elapsed/processed:.2f}s")
+    
+    # Data quality statistics
+    if stats and processed > 0:
+        print("\nData Quality:")
+        print(f"   • IP Address:     {stats['has_ip']:,} / {processed:,} "
+              f"({100*stats['has_ip']/processed:.1f}%)")
+        print(f"   • ASN:            {stats['has_asn']:,} / {processed:,} "
+              f"({100*stats['has_asn']/processed:.1f}%)")
+        if stats['missing_asn_with_ip'] > 0:
+            print(f"     ⚠ Missing ASN despite having IP: "
+                  f"{stats['missing_asn_with_ip']:,}")
+        print(f"   • ISP:            {stats['has_isp']:,} / {processed:,} "
+              f"({100*stats['has_isp']/processed:.1f}%)")
+        if stats['missing_isp_with_ip'] > 0:
+            print(f"     ⚠ Missing ISP despite having IP: "
+                  f"{stats['missing_isp_with_ip']:,}")
+        print(f"   • Country:        {stats['has_country']:,} / {processed:,} "
+              f"({100*stats['has_country']/processed:.1f}%)")
+        
+        # Write detailed stats to debug log (only if debug enabled)
+        if args.debug:
+            debug_logger.info(f"=== Enrichment Session Summary ===")
+            debug_logger.info(f"Processed: {processed}, Skipped: {skipped}, "
+                             f"Failed: {failed}")
+            debug_logger.info(f"Data completeness: {stats}")
+            debug_logger.info(f"Check enrichment_debug.log for detailed traces")
+            
+            print(f"\n📋 Detailed debugging info written to: "
+                  f"{DB_DIR / 'enrichment_debug.log'}")
+    
     print(f"{'='*60}\n")
     
     return 0
