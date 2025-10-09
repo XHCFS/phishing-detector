@@ -329,7 +329,7 @@ sqlite3 app/database/threat_feeds.db "
 **Data Provided:**
 - `ip_address`
 
-**Always available:** ✅ No dependencies
+**Always available:**  No dependencies
 
 ---
 
@@ -348,10 +348,10 @@ sqlite3 app/database/threat_feeds.db "
 **Rate Limiting:** 1 second delay between queries (required to avoid bans)
 
 **Limitations:**
-- ⚠️ **WHOIS Privacy:** ~69% of domains use privacy protection services
-- ⚠️ **TLD Restrictions:** Some TLDs block automated queries (.dev, .br, .tl)
-- ⚠️ **Subdomains:** Services like Blogspot, Pages.dev don't have individual WHOIS
-- ⚠️ **Timeouts:** Some WHOIS servers are unreliable
+-  **WHOIS Privacy:** ~69% of domains use privacy protection services
+-  **TLD Restrictions:** Some TLDs block automated queries (.dev, .br, .tl)
+-  **Subdomains:** Services like Blogspot, Pages.dev don't have individual WHOIS
+-  **Timeouts:** Some WHOIS servers are unreliable
 
 ---
 
@@ -374,9 +374,9 @@ sqlite3 app/database/threat_feeds.db "
 - `GeoLite2-ASN.mmdb` - ASN/organization data
 
 **Advantages:**
-- ✅ Offline lookups (no rate limits)
-- ✅ Very fast
-- ✅ High accuracy
+-  Offline lookups (no rate limits)
+-  Very fast
+-  High accuracy
 
 **Fallback:** IPWhois (online RDAP queries) if GeoIP unavailable
 
@@ -397,8 +397,8 @@ sqlite3 app/database/threat_feeds.db "
 **Used when:** GeoIP databases not available
 
 **Limitations:**
-- ⚠️ **CDN IPs:** Cloudflare, AWS CloudFront often don't expose CIDR blocks
-- ⚠️ **Slower:** Online queries vs offline GeoIP databases
+-  **CDN IPs:** Cloudflare, AWS CloudFront often don't expose CIDR blocks
+-  **Slower:** Online queries vs offline GeoIP databases
 
 ---
 
@@ -414,7 +414,7 @@ sqlite3 app/database/threat_feeds.db "
 - `cert_valid_to` - Certificate expiry date
 - `cert_serial` - Certificate serial number
 
-**Always available:** ✅ No dependencies  
+**Always available:**  No dependencies  
 **Timeout:** 5 seconds
 
 **Note:** HTTP-only sites will have `ssl_enabled='no'` and NULL certificate fields (expected behavior)
@@ -447,8 +447,8 @@ sqlite3 app/database/threat_feeds.db "
 **Fallback:** Heuristic keyword matching if not available
 
 **Limitations:**
-- ⚠️ Short titles may not have enough context
-- ⚠️ Requires page to be online
+-  Short titles may not have enough context
+-  Requires page to be online
 
 ---
 
@@ -456,7 +456,7 @@ sqlite3 app/database/threat_feeds.db "
 
 ### What Can vs Cannot Be Fixed
 
-#### ✅ Fields with 100% Population
+####  Fields with 100% Population
 - `url` - From raw database
 - `domain` - Extracted from URL
 - `ip_address` - DNS resolution (100% success for valid domains)
@@ -469,27 +469,27 @@ sqlite3 app/database/threat_feeds.db "
 - `threat_type` - From raw database or inferred
 - `source_feed` - From raw database
 
-#### ⚠️ Fields with Partial Population
+####  Fields with Partial Population
 
 **CIDR Block** (~86% success)
 - **Missing for:** CDN IPs (Cloudflare, AWS, Google)
 - **Why:** CDNs don't expose CIDR ranges via RDAP for security reasons
-- **Fixable:** ❌ No - CDN policy limitation
+- **Fixable:**  No - CDN policy limitation
 - **Current state:** Best effort using IPWhois RDAP
 
 **Page Language** (~59% success)
 - **Missing for:** Offline sites, very short titles, non-textual content
 - **Why:** Requires HTTP response, needs sufficient text for detection
-- **Fixable:** ⚠️ Partially - could fetch full page body (very slow)
+- **Fixable:**  Partially - could fetch full page body (very slow)
 - **Current state:** Uses NLP on page title (langdetect library)
 
 **Page Title** (~97% success)
 - **Missing for:** Offline sites, sites that block HEAD requests
 - **Why:** Requires HTTP response
-- **Fixable:** ✅ Already optimal
+- **Fixable:**  Already optimal
 - **Current state:** High success rate
 
-#### ❌ Fields with Low Population
+####  Fields with Low Population
 
 **WHOIS Data** (~31% success: registrar, creation_date, expiry_date, name_servers)
 - **Missing for:** ~69% of domains
@@ -499,7 +499,7 @@ sqlite3 app/database/threat_feeds.db "
   3. **Subdomains** - Hosted services (Blogspot, Pages.dev, MyFreeSites) - parent domain WHOIS irrelevant
   4. **Rate Limiting** - WHOIS servers block/throttle automated queries
   5. **Timeouts** - Some WHOIS servers unreliable (e.g., .tl domains)
-- **Fixable:** ❌ No - fundamental protocol/policy limitations
+- **Fixable:**  No - fundamental protocol/policy limitations
 - **Current state:** 1-second rate limiting, best effort
 
 **SSL Certificates** (Variable - only for HTTPS sites)
@@ -511,13 +511,13 @@ sqlite3 app/database/threat_feeds.db "
 **Target Brand** (PhishTank only - 0% for OpenPhish/URLhaus)
 - **Missing for:** OpenPhish and URLhaus sources
 - **Why:** These feeds don't include brand/target information
-- **Fixable:** ⚠️ Could use ML/scraping (unreliable, slow, expensive)
+- **Fixable:**  Could use ML/scraping (unreliable, slow, expensive)
 - **Current state:** Available only from PhishTank data
 
 **Threat Tags** (~0% - URLhaus field exists but empty)
 - **Missing for:** All records
 - **Why:** URLhaus doesn't consistently populate this field
-- **Fixable:** ❌ No - upstream data quality issue
+- **Fixable:**  No - upstream data quality issue
 - **Current state:** Field exists but typically empty
 
 ---
@@ -588,11 +588,11 @@ The enrichment pipeline prioritizes **speed and reliability** over **100% field 
 
 | Feature | Trade-off | Decision |
 |---------|-----------|----------|
-| 1s WHOIS delay | Slower, but avoids server bans | ✅ Required |
-| GeoIP databases | Fast, but requires setup | ✅ Recommended |
-| langdetect on title only | Misses some languages | ✅ Acceptable (fetching body too slow) |
-| IPWhois RDAP | Fast, but CDNs incomplete | ✅ Best available |
-| Skip HTTPS on HTTP sites | NULL cert fields | ✅ Correct behavior |
+| 1s WHOIS delay | Slower, but avoids server bans |  Required |
+| GeoIP databases | Fast, but requires setup |  Recommended |
+| langdetect on title only | Misses some languages |  Acceptable (fetching body too slow) |
+| IPWhois RDAP | Fast, but CDNs incomplete |  Best available |
+| Skip HTTPS on HTTP sites | NULL cert fields |  Correct behavior |
 
 **Processing time per URL:** ~4-6 seconds (full enrichment)  
 **Bottlenecks:**

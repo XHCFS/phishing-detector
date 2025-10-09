@@ -33,10 +33,10 @@ echo "=========================================="
 echo "  Phishing Detector Application"
 echo "=========================================="
 echo ""
-echo "🚀 Starting server..."
-echo "📍 URL: http://127.0.0.1:${PORT}"
+echo "Starting server..."
+echo "URL: http://127.0.0.1:${PORT}"
 echo ""
-echo "📊 Threat Database Status:"
+echo "Threat Database Status:"
 python -c "
 import sqlite3
 from pathlib import Path
@@ -57,14 +57,14 @@ try:
         print(f'   - URLhaus: {urlhaus:,} URLs')
         print(f'   - Total: {openphish+phishtank+urlhaus:,} threat URLs')
     else:
-        print('   ⚠️  Raw database not found. Run ./setup.sh')
+        print('   WARNING: Raw database not found. Run ./setup.sh')
 except Exception as e:
-    print(f'   ⚠️  Could not read database')
-" 2>/dev/null || echo "   ⚠️  Database not initialized"
+    print(f'   WARNING: Could not read database')
+" 2>/dev/null || echo "   WARNING: Database not initialized"
 
 echo ""
-echo "📖 Documentation: app/database/README.md"
-echo "🛑 Press Ctrl+C to stop"
+echo "Documentation: app/database/README.md"
+echo "Press Ctrl+C to stop"
 echo ""
 
 uvicorn "$APP_MODULE" --reload --host "$HOST" --port "$PORT"

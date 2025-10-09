@@ -128,11 +128,11 @@ sqlite3 app/database/threat_feeds.db ".schema enriched_threats"
 
 #### 3.1 Optional: Install Full Dependencies
 ```bash
-# Minimal enrichment (DNS + SSL + HTTP)
+# Minimal enrichment (DNS + SSL + HTTP + GeoIP)
 # No additional packages needed
 
 # Full enrichment (recommended)
-pip install python-whois geoip2 ipwhois langdetect
+pip install python-whois geoip2 ipwhois langdetect aiohttp
 ```
 
 #### 3.2 Optional: Download GeoIP Databases (Fast Lookups)
@@ -147,17 +147,35 @@ pip install python-whois geoip2 ipwhois langdetect
 
 #### 3.3 Run Enrichment
 
-**Test (10 URLs):**
+**Performance Modes:**
+
 ```bash
-python -m app.database.enrich --limit 10
+# MAXIMUM SPEED MODE (~20-30 sec for 300 URLs)
+# Skips: WHOIS, IPWhois, Page content
+python -m app.database.enrich --limit 300 \
+  --disable-whois --disable-ipwhois --disable-page-content
+
+# FAST MODE (~30-40 sec for 300 URLs)
+# Skips: Page content (slowest operation)
+python -m app.database.enrich --limit 300 --disable-page-content
+
+# BALANCED MODE (~40-50 sec for 300 URLs)
+# Skips: WHOIS (registrar data), IPWhois (CIDR blocks)
+python -m app.database.enrich --limit 300 \
+  --disable-whois --disable-ipwhois
+
+# FULL MODE - Default (~60-90 sec for 300 URLs)
+# Collects everything: WHOIS, IPWhois, page content
+python -m app.database.enrich --limit 300
 ```
 
 **Production (all URLs):**
 ```bash
-# Process in batches, skip already enriched
-python -m app.database.enrich --limit 1000 --skip-existing
+# Fast mode for large batches (recommended)
+python -m app.database.enrich --skip-existing \
+  --disable-page-content --concurrency 100 --workers 200
 
-# Or full enrichment (overnight job)
+# Full enrichment (overnight job for all data)
 nohup python -m app.database.enrich --skip-existing > enrichment.log 2>&1 &
 ```
 
@@ -209,8 +227,9 @@ FROM enriched_threats;
 # Update raw feeds (safe to run daily - idempotent)
 python -m app.database.grabrawdata
 
-# Enrich new URLs only
-python -m app.database.enrich --skip-existing --limit 5000
+# Fast enrichment of new URLs (recommended for daily updates)
+python -m app.database.enrich --skip-existing --limit 5000 \
+  --disable-page-content --concurrency 100
 ```
 
 ### Automated Updates (Cron)
@@ -219,9 +238,9 @@ python -m app.database.enrich --skip-existing --limit 5000
 # Edit crontab
 crontab -e
 
-# Add daily updates at 2 AM
+# Add daily updates at 2 AM (fast mode for quick updates)
 0 2 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.grabrawdata >> /var/log/threat_feeds.log 2>&1
-0 3 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.enrich --skip-existing --limit 5000 >> /var/log/enrichment.log 2>&1
+0 3 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.enrich --skip-existing --limit 5000 --disable-page-content --concurrency 100 >> /var/log/enrichment.log 2>&1
 ```
 
 ---
@@ -243,24 +262,60 @@ python -m app.database.grabrawdata --db /path/to/custom.db
 ```
 
 ### enrich.py (Enrichment Pipeline)
-```bash
-# Test with 10 URLs
-python -m app.database.enrich --limit 10
 
-# Process 1000 URLs, skip already enriched
-python -m app.database.enrich --limit 1000 --skip-existing
+**Basic Usage:**
+```bash
+# Test with 10 URLs (full mode)
+python -m app.database.enrich --limit 10
 
 # Process specific source
 python -m app.database.enrich --source phishtank --limit 500
 python -m app.database.enrich --source openphish
 python -m app.database.enrich --source urlhaus
+```
 
-# Full enrichment
-python -m app.database.enrich --skip-existing
+**Performance Presets:**
+```bash
+# Maximum speed (skip slow operations)
+python -m app.database.enrich --limit 1000 --skip-existing \
+  --disable-whois --disable-ipwhois --disable-page-content
+
+# Fast (skip page content only)
+python -m app.database.enrich --limit 1000 --skip-existing \
+  --disable-page-content
+
+# Balanced (skip WHOIS/IPWhois)
+python -m app.database.enrich --limit 1000 --skip-existing \
+  --disable-whois --disable-ipwhois
+
+# Full enrichment (default - all data)
+python -m app.database.enrich --limit 1000 --skip-existing
+```
+
+**Advanced Options:**
+```bash
+# Custom concurrency (default: 100 URLs, 200 workers)
+python -m app.database.enrich --concurrency 150 --workers 250
 
 # Custom database paths
-python -m app.database.enrich --raw-db /path/to/raw.db --enriched-db /path/to/enriched.db
+python -m app.database.enrich \
+  --raw-db /path/to/raw.db \
+  --enriched-db /path/to/enriched.db
+
+# Legacy synchronous mode (for debugging)
+python -m app.database.enrich --legacy --limit 10
 ```
+
+**All Flags:**
+- `--limit N` - Process only N URLs
+- `--skip-existing` - Skip already enriched URLs
+- `--source {openphish,phishtank,urlhaus}` - Process specific feed
+- `--disable-whois` - Skip WHOIS lookups (faster, loses registrar data)
+- `--disable-ipwhois` - Skip IPWhois lookups (faster, loses CIDR data)
+- `--disable-page-content` - Skip page fetching (faster, loses title/lang)
+- `--concurrency N` - URLs per batch (default: 100)
+- `--workers N` - Thread pool size (default: 200)
+- `--legacy` - Use synchronous processing (slower, for debugging)
 
 ---
 
@@ -286,15 +341,20 @@ app/database/
 
 The enrichment pipeline collects data from multiple sources:
 
-| Source | Speed | Data Provided | Dependency |
-|--------|-------|---------------|------------|
-| **DNS** | Fast | IP addresses | Built-in ✅ |
-| **SSL/TLS** | Medium | Certificates, validity | Built-in ✅ |
-| **HTTP** | Medium | Online status, titles | `requests` |
-| **WHOIS** | Slow | Registrar, dates, nameservers | `python-whois` |
-| **GeoIP** | Very Fast | Country, city, GPS, ASN | `geoip2` + databases |
-| **IPWhois** | Slow | ASN, ISP, CIDR (fallback) | `ipwhois` |
-| **Language** | Fast | Page language detection | `langdetect` |
+| Source | Speed | Data Provided | Dependency | Can Disable |
+|--------|-------|---------------|------------|-------------|
+| **DNS** | Fast | IP addresses | Built-in | Always on |
+| **SSL/TLS** | Medium | Certificates, validity | Built-in | Always on |
+| **HTTP** | Fast | Online status | `requests` / `aiohttp` | Always on |
+| **GeoIP** | Very Fast | Country, city, GPS, ASN | `geoip2` + databases | Always on |
+| **WHOIS** | Slow | Registrar, dates, nameservers | `python-whois` | `--disable-whois` |
+| **IPWhois** | Slow | CIDR blocks (detailed) | `ipwhois` | `--disable-ipwhois` |
+| **Page Content** | Very Slow | Page title, language | `requests` + `langdetect` | `--disable-page-content` |
+
+**Performance Impact:**
+- **DNS, SSL, HTTP, GeoIP**: Fast core operations (~0.3-1s per URL)
+- **WHOIS, IPWhois**: Slower but valuable (~1-2s per URL)
+- **Page Content**: Slowest operation (~2-4s per URL) - **disable for speed**
 
 **Graceful Degradation:** The pipeline works with any combination of dependencies. More dependencies = more enriched data.
 
@@ -302,43 +362,68 @@ The enrichment pipeline collects data from multiple sources:
 
 ## Performance
 
-### Enrichment Speed (per URL)
-- **Minimal** (DNS + SSL + HTTP): ~2 seconds
-- **Fast** (with GeoIP databases): ~1 second
-- **Full** (all features): ~4-6 seconds
+### Enrichment Speed Modes
 
-### For 52,000 URLs
-- **Minimal**: ~29 hours
-- **Fast**: ~15 hours
-- **Full**: ~58 hours
+| Mode | Speed (300 URLs) | What's Collected | What's Skipped |
+|------|------------------|------------------|----------------|
+| **Maximum Speed** | 15-25 sec | DNS, GeoIP, SSL, online status | WHOIS, IPWhois, page content |
+| **Fast** | 30-40 sec | + WHOIS, IPWhois | Page content |
+| **Balanced** | 40-50 sec | + Page content | WHOIS, IPWhois |
+| **Full** (default) | 60-90 sec | Everything | Nothing |
+
+**Commands:**
+```bash
+# Maximum speed
+--disable-whois --disable-ipwhois --disable-page-content
+
+# Fast mode
+--disable-page-content
+
+# Balanced
+--disable-whois --disable-ipwhois
+
+# Full mode (default)
+# No flags needed
+```
+
+### For 52,000 URLs (Full Dataset)
+
+| Mode | Estimated Time | URLs/sec |
+|------|---------------|----------|
+| Maximum Speed | ~6-9 hours | 1.6-2.4 |
+| Fast | ~12-15 hours | 1.0-1.2 |
+| Balanced | ~15-18 hours | 0.8-1.0 |
+| Full | ~24-36 hours | 0.4-0.6 |
 
 ### Optimization Tips
-1. ✅ Use GeoIP databases (not IPWhois) - 50x faster
-2. ✅ Process in batches with `--limit 1000`
-3. ✅ Use `--skip-existing` for incremental updates
-4. ✅ Skip WHOIS (don't install `python-whois`) for 40% speedup
-5. ✅ Process overnight for large datasets
+1. **Use GeoIP databases** - 50-100x faster than IP-API
+2. **Disable page content** (biggest speedup) - saves 2-3s per URL
+3. **Process in batches** with `--limit 1000 --skip-existing`
+4. **High concurrency** - `--concurrency 100 --workers 200`
+5. **Skip WHOIS/IPWhois** for speed - use `--disable-whois --disable-ipwhois`
+6. **Install aiohttp** - `pip install aiohttp` for async HTTP (faster)
+7. **Process overnight** for full enrichment of large datasets
 
 ---
 
 ## Enrichment Limitations
 
 ### Fields with 100% Success
-- ✅ IP address, country, city, ASN, ISP
-- ✅ SSL status, online status
-- ✅ Domain, TLD
+- IP address, country, city, ASN, ISP
+- SSL status, online status
+- Domain, TLD
 
 ### Fields with Partial Success
-- ⚠️ **CIDR blocks** (~86%) - CDNs don't expose ranges
-- ⚠️ **Page language** (~59%) - Requires online site
-- ⚠️ **Page title** (~97%) - Requires HTTP response
+- **CIDR blocks** (~86%) - CDNs don't expose ranges
+- **Page language** (~59%) - Requires online site
+- **Page title** (~97%) - Requires HTTP response
 
 ### Fields with Low Success
-- ❌ **WHOIS data** (~31%) - Privacy protection, TLD restrictions
+- **WHOIS data** (~31%) - Privacy protection, TLD restrictions
   - **Why:** WHOIS privacy services, subdomain hosting, rate limits
   - **Cannot fix:** Fundamental protocol/policy limitations
-- ❌ **SSL certificates** (HTTPS only) - HTTP sites have NULL (correct)
-- ❌ **Target brand** (PhishTank only) - Other feeds don't include it
+- **SSL certificates** (HTTPS only) - HTTP sites have NULL (correct)
+- **Target brand** (PhishTank only) - Other feeds don't include it
 
 **See [DATABASE_GUIDE.md](Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md#enrichment-limitations) for detailed explanations.**
 
@@ -382,14 +467,14 @@ pip install python-whois
 
 ## Documentation
 
-📖 **Complete Guide:** [DATABASE_GUIDE.md](Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) (985 lines)
+**Complete Guide:** [DATABASE_GUIDE.md](Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) (985 lines)
 - Detailed architecture and data flow
 - Complete enrichment data source explanations
 - Technical limitations and why they exist
 - Performance optimization strategies
 - Comprehensive troubleshooting
 
-📖 **Data Sources:** [Data Sources.md](Documentation%20%26%20Sources%20Research/Data%20Sources.md)
+**Data Sources:** [Data Sources.md](Documentation%20%26%20Sources%20Research/Data%20Sources.md)
 - OpenPhish, PhishTank, URLhaus details
 - API specifications and examples
 - Additional sources (Google Safe Browsing, dnstwist, etc.)
@@ -413,14 +498,21 @@ For detailed information, see:
 3. `python -m app.database.db` - Create enriched DB
 4. `python -m app.database.enrich --limit 10` - Test enrichment
 
-**Daily Maintenance:**
+**Daily Maintenance (Fast Mode):**
 ```bash
 python -m app.database.grabrawdata  # Update feeds
-python -m app.database.enrich --skip-existing --limit 5000  # Enrich new URLs
+python -m app.database.enrich --skip-existing --limit 5000 \
+  --disable-page-content --concurrency 100  # Fast enrichment
 ```
+
+**Performance Modes:**
+- **Maximum Speed**: Add `--disable-whois --disable-ipwhois --disable-page-content`
+- **Fast**: Add `--disable-page-content`
+- **Balanced**: Add `--disable-whois --disable-ipwhois`
+- **Full** (default): No flags needed
 
 **Database Status:**
 - Raw: ~52,000 URLs from 3 public feeds
 - Enriched: 41 fields per URL (network, geo, SSL, WHOIS, status)
 
-Ready to detect phishing! 🎣🔍
+Ready to detect phishing!

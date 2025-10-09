@@ -4,10 +4,10 @@ This is a program that detects, and groups phishing emails using threat intellig
 
 ## Features
 
-- 🎣 **Threat Intelligence Database** - Collects data from OpenPhish, PhishTank, and URLhaus
-- 🌍 **Enrichment Pipeline** - Adds GeoIP, WHOIS, SSL, and network information
-- 🔍 **Detection & Analysis** - Identifies phishing patterns and threats
-- 📊 **Dashboard** - Visual interface for monitoring threats
+- **Threat Intelligence Database** - Collects data from OpenPhish, PhishTank, and URLhaus
+- **Enrichment Pipeline** - Adds GeoIP, WHOIS, SSL, and network information
+- **Detection & Analysis** - Identifies phishing patterns and threats
+- **Dashboard** - Visual interface for monitoring threats
 
 ---
 
@@ -53,7 +53,7 @@ The setup script will:
 
 The threat intelligence database is automatically initialized by `setup.sh`. For manual setup or advanced configuration, see:
 
-📖 **[Database Setup Guide](app/database/README.md)** - Complete database documentation
+**[Database Setup Guide](app/database/README.md)** - Complete database documentation
 
 **Quick Database Commands:**
 ```bash
@@ -135,9 +135,9 @@ phishing-detector/
 
 ## Documentation
 
-- 📖 [Database Setup Guide](app/database/README.md) - Quick start and commands
-- 📖 [Complete Database Documentation](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) - Technical details (985 lines)
-- 📖 [Data Sources](app/database/Documentation%20%26%20Sources%20Research/Data%20Sources.md) - Threat feed specifications
+- [Database Setup Guide](app/database/README.md) - Quick start and commands
+- [Complete Database Documentation](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) - Technical details (985 lines)
+- [Data Sources](app/database/Documentation%20%26%20Sources%20Research/Data%20Sources.md) - Threat feed specifications
 
 ---
 
