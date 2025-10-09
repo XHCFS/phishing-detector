@@ -38,14 +38,42 @@ pip install --upgrade pip
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Optional database initialization
-if python3 -c "from app.database.db import init_db; init_db()" 2>/dev/null; then
-    echo "Database initialized successfully."
+# Database initialization
+echo ""
+echo "Initializing threat feeds database..."
+if python3 -m app.database.rawdb 2>/dev/null; then
+    echo "✓ Raw database schema created"
 else
-    echo "Database initialization skipped (db.py missing or failed)."
+    echo "✗ Warning: Raw database creation failed"
 fi
 
-echo "Setup complete."
-echo "To run the application, execute:"
-echo "  source $ACTIVATE && ./run.sh"
+if python3 -m app.database.db 2>/dev/null; then
+    echo "✓ Enriched database schema created"
+else
+    echo "✗ Warning: Enriched database creation failed"
+fi
 
+echo ""
+echo "Fetching initial threat data (this may take a few minutes)..."
+if python3 -m app.database.grabrawdata 2>/dev/null; then
+    echo "✓ Threat feeds downloaded successfully"
+else
+    echo "✗ Warning: Threat feed download failed (check internet connection)"
+fi
+
+echo ""
+echo "Setup complete!"
+echo ""
+echo "📊 Database Status:"
+echo "   - Raw database ready (~52,000 threat URLs from 3 feeds)"
+echo "   - Enriched database schema created"
+echo ""
+echo "🚀 To start the application:"
+echo "   ./run.sh"
+echo ""
+echo "📖 For database management and enrichment:"
+echo "   See: app/database/README.md"
+echo ""
+echo "💡 Optional: Set up API keys in .env file"
+echo "   - PHISHTANK_API_KEY (optional, for higher rate limits)"
+echo "   - URLHAUS_API_KEY (required for URLhaus data)"

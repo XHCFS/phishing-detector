@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.email_checker.core import analyze_email
+from app.detector.core import analyze_email
 
 router = APIRouter()
 

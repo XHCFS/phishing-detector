@@ -29,9 +29,43 @@ if ! python -c "import uvicorn" &> /dev/null; then
 fi
 
 # Run the FastAPI app
-echo "Starting Email Screening Prototype..."
-echo "Server running at: http://127.0.0.1:${PORT}"
-echo "Press Ctrl+C to stop."
+echo "=========================================="
+echo "  Phishing Detector Application"
+echo "=========================================="
+echo ""
+echo "🚀 Starting server..."
+echo "📍 URL: http://127.0.0.1:${PORT}"
+echo ""
+echo "📊 Threat Database Status:"
+python -c "
+import sqlite3
+from pathlib import Path
+try:
+    db_path = Path('app/database/threat_feeds_raw.db')
+    if db_path.exists():
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM openphish_feed')
+        openphish = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) FROM phishtank_archival')
+        phishtank = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) FROM urlhaus_api')
+        urlhaus = cursor.fetchone()[0]
+        conn.close()
+        print(f'   - OpenPhish: {openphish:,} URLs')
+        print(f'   - PhishTank: {phishtank:,} URLs')
+        print(f'   - URLhaus: {urlhaus:,} URLs')
+        print(f'   - Total: {openphish+phishtank+urlhaus:,} threat URLs')
+    else:
+        print('   ⚠️  Raw database not found. Run ./setup.sh')
+except Exception as e:
+    print(f'   ⚠️  Could not read database')
+" 2>/dev/null || echo "   ⚠️  Database not initialized"
+
+echo ""
+echo "📖 Documentation: app/database/README.md"
+echo "🛑 Press Ctrl+C to stop"
+echo ""
 
 uvicorn "$APP_MODULE" --reload --host "$HOST" --port "$PORT"
 
