@@ -61,6 +61,8 @@ else
     echo "✗ Warning: Threat feed download failed (check internet connection)"
 fi
 
+python -m app.database.enrich --limit=1000
+
 echo ""
 echo "Setup complete!"
 echo ""
