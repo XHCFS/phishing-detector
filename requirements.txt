@@ -13,3 +13,8 @@ ipwhois==1.2.0
 beautifulsoup4==4.12.3
 langdetect==1.0.9
 
+#email dep
+google-api-python-client>=2.0.0
+google-auth-httplib2>=0.1.0
+google-auth-oauthlib>=0.5.0
+email-validator>=2.0.0.post2

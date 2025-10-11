@@ -79,3 +79,24 @@ echo ""
 echo "Optional: Set up API keys in .env file"
 echo "   - PHISHTANK_API_KEY (optional, for higher rate limits)"
 echo "   - URLHAUS_API_KEY (required for URLhaus data)"
+
+# Detector (emails) setup
+DETECTOR_CRED_DIR="app/detector"
+DETECTOR_CRED_EXAMPLE="$DETECTOR_CRED_DIR/credentials.json.example"
+DETECTOR_CRED="$DETECTOR_CRED_DIR/credentials.json"
+
+echo "\nRunning detector setup..."
+# If example credentials exist and real credentials don't, copy them (safe default)
+if [ -f "$DETECTOR_CRED_EXAMPLE" ] && [ ! -f "$DETECTOR_CRED" ]; then
+    echo "Copying detector credentials example to $DETECTOR_CRED"
+    cp "$DETECTOR_CRED_EXAMPLE" "$DETECTOR_CRED"
+else
+    echo "Detector credentials already present or example missing; skipping copy."
+fi
+
+# Create the emails DB/table used by the detector module
+if python3 -m app.detector.core --setup-db 2>/dev/null; then
+    echo "✓ Detector emails DB schema created"
+else
+    echo "✗ Warning: Detector emails DB creation failed"
+fi

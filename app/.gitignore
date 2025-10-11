@@ -1,1 +1,11 @@
+# Ignore sensitive credential and token files for the detector Gmail integration
+detector/credentials.json
+detector/token.json
+
+# Local sqlite DBs
+database/emails.db
+
+# Python cache
+__pycache__/
+.pytest_cache/
 
