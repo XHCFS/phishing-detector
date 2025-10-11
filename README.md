@@ -1,4 +1,3 @@
-````markdown
 # phishing-detector
 This is a program that detects, and groups phishing emails using threat intelligence from multiple public feeds.
 
@@ -181,6 +180,3 @@ See [Database README](app/database/README.md) for database-specific troubleshoot
 ## License
 
 See [LICENSE](LICENSE) file for details.
-
-
-````
