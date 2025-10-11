@@ -19,7 +19,7 @@ google-auth-httplib2>=0.1.0
 google-auth-oauthlib>=0.5.0
 email-validator>=2.0.0.post2
 # Dashboard dependencies
-streamlit==1.31.0
-pandas==2.2.0
-plotly==5.18.0
+streamlit==1.50.0
+pandas==2.3.3
+plotly==6.3.1
 
