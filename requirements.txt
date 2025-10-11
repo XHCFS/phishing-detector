@@ -13,3 +13,8 @@ ipwhois==1.2.0
 beautifulsoup4==4.12.3
 langdetect==1.0.9
 
+# Dashboard dependencies
+streamlit==1.31.0
+pandas==2.2.0
+plotly==5.18.0
+
