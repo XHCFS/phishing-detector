@@ -1,0 +1,8 @@
+google-auth
+google-auth-oauthlib
+google-api-python-client
+requests
+aiohttp
+geoip2
+ipwhois
+langdetect

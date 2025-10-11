@@ -112,6 +112,39 @@ CREATE INDEX IF NOT EXISTS idx_enriched_first_seen
     ON enriched_threats(first_seen);
 CREATE INDEX IF NOT EXISTS idx_enriched_last_seen
     ON enriched_threats(last_seen);
+
+-- Emails table: stores information from received emails
+CREATE TABLE IF NOT EXISTS emails (
+    id TEXT PRIMARY KEY,
+    sender TEXT,
+    subject TEXT,
+    date TEXT,
+    headers_json TEXT,
+    body_plain TEXT,
+    body_html TEXT,
+    risk_score INTEGER DEFAULT 0,     -- Risk score (0-100), 100 = highest risk
+    fetched_at DATETIME DEFAULT (datetime('now'))
+);
+
+-- Email-URL relationship table: links emails to URLs in enriched_threats
+CREATE TABLE IF NOT EXISTS email_urls (
+    email_id TEXT NOT NULL,
+    url_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now')),
+    PRIMARY KEY (email_id, url_id),
+    FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE,
+    FOREIGN KEY (url_id) REFERENCES enriched_threats(id) ON DELETE CASCADE
+);
+
+-- Indexes for email tables
+CREATE INDEX IF NOT EXISTS idx_emails_risk_score
+    ON emails(risk_score);
+CREATE INDEX IF NOT EXISTS idx_emails_fetched_at
+    ON emails(fetched_at);
+CREATE INDEX IF NOT EXISTS idx_email_urls_email_id
+    ON email_urls(email_id);
+CREATE INDEX IF NOT EXISTS idx_email_urls_url_id
+    ON email_urls(url_id);
 """
 
 

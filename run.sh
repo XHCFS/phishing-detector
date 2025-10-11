@@ -28,6 +28,24 @@ if ! python -c "import uvicorn" &> /dev/null; then
     pip install uvicorn
 fi
 
+# Check if Gmail authentication is completed
+TOKEN_PATH="app/detector/token.json"
+if [ ! -f "$TOKEN_PATH" ]; then
+    echo "=========================================="
+    echo "  Gmail Authentication Required"
+    echo "=========================================="
+    echo ""
+    echo "Gmail OAuth token not found. You need to authenticate first."
+    echo ""
+    echo "Run the following command to authenticate:"
+    echo "  python -m app.detector.core --authenticate"
+    echo ""
+    echo "This will open a browser window for you to complete OAuth."
+    echo "After authentication, run ./run.sh again to start the app."
+    echo ""
+    exit 1
+fi
+
 # Run the FastAPI app
 echo "=========================================="
 echo "  Phishing Detector Application"
