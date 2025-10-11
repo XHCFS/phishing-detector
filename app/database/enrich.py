@@ -1350,6 +1350,92 @@ def insert_enriched_data_batch(
     """, records)
     
     con.commit()
+    
+    # Calculate risk scores for the newly inserted records
+    if records:
+        try:
+            # Get URLs from the records to update their risk scores
+            urls = [record[0] for record in records]  # URL is first field
+            url_placeholders = ','.join('?' * len(urls))
+            
+            # Update risk scores for just the inserted records
+            con.execute(f"""
+                UPDATE enriched_threats 
+                SET risk_score = (
+                    -- Liveness Score (0-35 pts)
+                    CASE 
+                        WHEN http_status_code IN (200, 301, 302, 307, 308) THEN 35
+                        WHEN http_status_code IN (401, 403, 405, 429, 451) THEN 28
+                        WHEN http_status_code >= 500 AND http_status_code < 600 THEN 20
+                        WHEN http_status_code IN (404, 410) THEN 12
+                        WHEN http_status_code IS NOT NULL THEN 10
+                        WHEN online = 'yes' THEN 20
+                        WHEN online = 'no' OR online IS NULL THEN 10
+                        ELSE 10
+                    END
+                    +
+                    -- Recency Score (0-25 pts)
+                    CASE 
+                        WHEN last_seen IS NULL THEN 5
+                        WHEN julianday('now') - julianday(last_seen) <= 3 THEN 25
+                        WHEN julianday('now') - julianday(last_seen) <= 7 THEN 20
+                        WHEN julianday('now') - julianday(last_seen) <= 14 THEN 15
+                        WHEN julianday('now') - julianday(last_seen) <= 30 THEN 10
+                        ELSE 5
+                    END
+                    +
+                    -- Domain Age Score (0-20 pts)
+                    CASE 
+                        WHEN creation_date IS NULL THEN 8
+                        WHEN julianday('now') - julianday(creation_date) <= 7 THEN 20
+                        WHEN julianday('now') - julianday(creation_date) <= 30 THEN 15
+                        WHEN julianday('now') - julianday(creation_date) <= 90 THEN 10
+                        ELSE 5
+                    END
+                    +
+                    -- TLD/Platform Score (0-10 pts)
+                    CASE
+                        WHEN LOWER(tld) IN ('zip', 'mov', 'top', 'cc', 'icu', 'xyz', 'click', 'info') THEN 
+                            CASE 
+                                WHEN LOWER(url) LIKE '%.vercel.app%' OR LOWER(url) LIKE '%.web.app%' OR 
+                                     LOWER(url) LIKE '%.github.io%' OR LOWER(url) LIKE '%.cprapid.com%' OR
+                                     LOWER(url) LIKE '%.pages.dev%' OR LOWER(url) LIKE '%.netlify.app%' OR
+                                     LOWER(url) LIKE '%.render.com%' OR LOWER(url) LIKE '%.fly.dev%' THEN 10
+                                ELSE 10
+                            END
+                        WHEN LOWER(tld) IN ('com', 'net', 'org') THEN
+                            CASE 
+                                WHEN LOWER(url) LIKE '%.vercel.app%' OR LOWER(url) LIKE '%.web.app%' OR 
+                                     LOWER(url) LIKE '%.github.io%' OR LOWER(url) LIKE '%.cprapid.com%' OR
+                                     LOWER(url) LIKE '%.pages.dev%' OR LOWER(url) LIKE '%.netlify.app%' OR
+                                     LOWER(url) LIKE '%.render.com%' OR LOWER(url) LIKE '%.fly.dev%' THEN 8
+                                ELSE 5
+                            END
+                        ELSE 
+                            CASE 
+                                WHEN LOWER(url) LIKE '%.vercel.app%' OR LOWER(url) LIKE '%.web.app%' OR 
+                                     LOWER(url) LIKE '%.github.io%' OR LOWER(url) LIKE '%.cprapid.com%' OR
+                                     LOWER(url) LIKE '%.pages.dev%' OR LOWER(url) LIKE '%.netlify.app%' OR
+                                     LOWER(url) LIKE '%.render.com%' OR LOWER(url) LIKE '%.fly.dev%' THEN 10
+                                ELSE 7
+                            END
+                    END
+                    +
+                    -- URL Keywords Score (0-10 pts)
+                    CASE 
+                        WHEN LOWER(url) LIKE '%login%' OR LOWER(url) LIKE '%verify%' OR LOWER(url) LIKE '%secure%' OR
+                             LOWER(url) LIKE '%update%' OR LOWER(url) LIKE '%invoice%' OR LOWER(url) LIKE '%mfa%' OR
+                             LOWER(url) LIKE '%password%' OR LOWER(url) LIKE '%wallet%' OR LOWER(url) LIKE '%bank%' OR
+                             LOWER(url) LIKE '%microsoft%' OR LOWER(url) LIKE '%office365%' OR LOWER(url) LIKE '%att%' THEN 10
+                        ELSE 0
+                    END
+                )
+                WHERE url IN ({url_placeholders})
+            """, urls)
+            con.commit()
+        except Exception as e:
+            print(f"Warning: Could not calculate risk scores for batch: {e}")
+    
     cur.close()
     con.close()
 
@@ -1802,6 +1888,15 @@ def main():
             
             print(f"\n📋 Detailed debugging info written to: "
                   f"{DB_DIR / 'enrichment_debug.log'}")
+    
+    # Calculate risk scores for all threats after enrichment
+    if processed > 0:
+        print(f"\n🎯 Calculating risk scores for enriched threats...")
+        from .db import calculate_risk_scores
+        try:
+            calculate_risk_scores(Path(args.enriched_db))
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to calculate risk scores: {e}")
     
     print(f"{'='*60}\n")
     
