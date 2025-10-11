@@ -27,7 +27,7 @@ Usage:
     level = get_risk_level(score)  # "Critical", "High", "Medium", "Low"
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -64,8 +64,17 @@ def calculate_recency_score(last_seen: Optional[str] = None) -> int:
         return 5
     
     try:
+        # Parse the datetime string
         last_seen_date = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
-        days_ago = (datetime.now() - last_seen_date).days
+        
+        # Make sure we compare timezone-aware datetimes
+        if last_seen_date.tzinfo is None:
+            # If naive, assume UTC
+            last_seen_date = last_seen_date.replace(tzinfo=timezone.utc)
+        
+        # Get current time in UTC
+        now = datetime.now(timezone.utc)
+        days_ago = (now - last_seen_date).days
         
         if days_ago <= 3:
             return 25
@@ -77,7 +86,7 @@ def calculate_recency_score(last_seen: Optional[str] = None) -> int:
             return 10
         else:
             return 5
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, TypeError):
         return 5
 
 
@@ -87,8 +96,17 @@ def calculate_domain_age_score(creation_date: Optional[str] = None) -> int:
         return 8
     
     try:
+        # Parse the datetime string
         created_date = datetime.fromisoformat(creation_date.replace('Z', '+00:00'))
-        days_old = (datetime.now() - created_date).days
+        
+        # Make sure we compare timezone-aware datetimes
+        if created_date.tzinfo is None:
+            # If naive, assume UTC
+            created_date = created_date.replace(tzinfo=timezone.utc)
+        
+        # Get current time in UTC
+        now = datetime.now(timezone.utc)
+        days_old = (now - created_date).days
         
         if days_old <= 7:
             return 20
@@ -98,7 +116,7 @@ def calculate_domain_age_score(creation_date: Optional[str] = None) -> int:
             return 10
         else:
             return 5
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, TypeError):
         return 8
 
 

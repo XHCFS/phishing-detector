@@ -23,6 +23,7 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 # Local imports
 from ..database import enrich as enrich_module
 from ..database import db as db_module
+from . import scoring
 
 # Gmail API scope (read-only)
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -207,13 +208,74 @@ def save_email_to_db(msg_id: str, sender: str, subject: str, date: str, headers:
         con.close()
 
 
-def update_email_risk_score(email_id: str, risk_score: int):
-    """Update the risk score for an email."""
+def update_email_risk_score(email_id: str, risk_score: int = None):
+    """Update the risk score for an email.
+    
+    If risk_score is None, calculates it as the MAX of all linked URLs' risk scores.
+    """
     con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
     cur = con.cursor()
+    
+    if risk_score is None:
+        # Calculate risk score as MAX of all linked URLs
+        cur.execute('''
+            SELECT MAX(et.risk_score)
+            FROM email_urls eu
+            JOIN enriched_threats et ON eu.url_id = et.id
+            WHERE eu.email_id = ?
+        ''', (email_id,))
+        result = cur.fetchone()
+        risk_score = result[0] if result and result[0] is not None else 0
+    
     cur.execute('UPDATE emails SET risk_score = ? WHERE id = ?', (risk_score, email_id))
     con.commit()
     con.close()
+
+
+def calculate_and_set_url_risk_score(url_id: int):
+    """Calculate and update the risk score for a URL in enriched_threats.
+    
+    - If source_feed != 'email': risk_score = 100
+    - If source_feed = 'email': calculate using scoring.py criteria
+    """
+    con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
+    cur = con.cursor()
+    
+    # Get URL data
+    cur.execute('''
+        SELECT url, source_feed, http_status_code, online, last_seen, creation_date, tld
+        FROM enriched_threats
+        WHERE id = ?
+    ''', (url_id,))
+    row = cur.fetchone()
+    
+    if not row:
+        con.close()
+        return
+    
+    url, source_feed, http_status_code, online_status, last_seen, creation_date, tld = row
+    
+    # Determine risk score
+    if source_feed != 'email':
+        # External threat feed - always maximum risk
+        risk_score = 100
+    else:
+        # Email source - calculate using scoring criteria
+        risk_score = scoring.calculate_risk_score(
+            url=url,
+            http_status_code=http_status_code,
+            online_status=online_status,
+            last_seen=last_seen,
+            creation_date=creation_date,
+            tld=tld
+        )
+    
+    # Update the risk score
+    cur.execute('UPDATE enriched_threats SET risk_score = ? WHERE id = ?', (risk_score, url_id))
+    con.commit()
+    con.close()
+    
+    return risk_score
 
 
 def extract_body(payload: dict) -> Tuple[str, str]:
@@ -393,12 +455,16 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
     # Process threat URLs (already in database, just link them)
     for url, url_id in threat_urls:
         link_email_to_url(email_id, url_id)
+        # Ensure risk score is set for external threats
+        calculate_and_set_url_risk_score(url_id)
         processed_count += 1
         print(f'⚠️  High risk: URL {url} found in threat feed!')
     
     # Process existing email URLs (just link them)
     for url, url_id in existing_email_urls:
         link_email_to_url(email_id, url_id)
+        # Recalculate risk score in case it wasn't set
+        calculate_and_set_url_risk_score(url_id)
         processed_count += 1
         print(f'URL {url} already in database (from email source)')
     
@@ -445,9 +511,11 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
                     
                     if new_row:
                         url_id = new_row[0]
+                        # Calculate and set risk score for the newly enriched URL
+                        risk_score = calculate_and_set_url_risk_score(url_id)
                         link_email_to_url(email_id, url_id)
                         processed_count += 1
-                        print(f'✓ Enriched and linked URL: {url}')
+                        print(f'✓ Enriched and linked URL: {url} (risk score: {risk_score})')
                         
                 except Exception as e:
                     print(f'Failed to insert enriched data for {url}: {e}')
@@ -455,10 +523,28 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
         finally:
             executor.shutdown(wait=True)
     
-    # Update email risk score if high risk URLs were found
-    if is_high_risk:
-        update_email_risk_score(email_id, 100)
-        print(f'📧 Email {email_id} marked as HIGH RISK (score: 100)')
+    # Update email risk score to MAX of all linked URLs
+    # This will automatically be 100 if any URL is from a threat feed
+    update_email_risk_score(email_id, risk_score=None)
+    
+    # Get the final risk score for reporting
+    con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
+    cur = con.cursor()
+    cur.execute('SELECT risk_score FROM emails WHERE id = ?', (email_id,))
+    result = cur.fetchone()
+    final_score = result[0] if result else 0
+    con.close()
+    
+    # Report risk level
+    risk_level = scoring.get_risk_level(final_score)
+    if final_score >= 85:
+        print(f'🚨 Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
+    elif final_score >= 70:
+        print(f'⚠️  Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
+    elif final_score >= 50:
+        print(f'⚡ Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
+    else:
+        print(f'✓ Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
     
     return processed_count
 
