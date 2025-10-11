@@ -1250,12 +1250,18 @@ def get_raw_data(
 
 
 def insert_enriched_data(enriched_db_path: Path, data: EnrichmentData):
-    """Insert enriched data into the database."""
+    """Insert enriched data into the database.
+    
+    IMPORTANT: Uses INSERT OR IGNORE to prevent overwriting existing entries.
+    This preserves threat feed data when the same URL is seen from email sources.
+    """
     con = sqlite3.connect(str(enriched_db_path))
     cur = con.cursor()
 
+    # Changed from INSERT OR REPLACE to INSERT OR IGNORE
+    # This prevents overwriting threat feed entries with email source data
     cur.execute("""
-        INSERT OR REPLACE INTO enriched_threats (
+        INSERT OR IGNORE INTO enriched_threats (
             url, domain, online, http_status_code,
             ip_address, cidr_block, asn, asn_name, isp,
             country, country_name, region, city, latitude, longitude,

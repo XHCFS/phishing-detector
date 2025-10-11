@@ -305,6 +305,58 @@ def extract_body(payload: dict) -> Tuple[str, str]:
 URL_REGEX = re.compile(r"https?://[\w\-\.\@:%_\+~#=\/\?&;,'()\[\]]+", re.IGNORECASE)
 
 
+def normalize_url(url: str) -> str:
+    """Normalize URL for consistent matching.
+    
+    - Strips whitespace and trailing punctuation
+    - Removes URL fragments (#section)
+    - Removes trailing slash (except for root URLs)
+    - Lowercases scheme and domain
+    - Removes default ports (80 for HTTP, 443 for HTTPS)
+    """
+    if not url:
+        return url
+    
+    # Strip whitespace and common trailing punctuation
+    url = url.strip().rstrip('.,;)')
+    
+    # Remove fragment (#section)
+    if '#' in url:
+        url = url.split('#')[0]
+    
+    # Parse URL into components
+    try:
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(url)
+        
+        # Normalize scheme (lowercase)
+        scheme = parsed.scheme.lower() if parsed.scheme else 'http'
+        
+        # Normalize domain (lowercase, remove default ports)
+        netloc = parsed.netloc.lower() if parsed.netloc else ''
+        
+        # Remove default ports
+        if ':80' in netloc and scheme == 'http':
+            netloc = netloc.replace(':80', '')
+        elif ':443' in netloc and scheme == 'https':
+            netloc = netloc.replace(':443', '')
+        
+        # Normalize path (remove trailing slash except for root)
+        path = parsed.path
+        if path and path != '/' and path.endswith('/'):
+            path = path.rstrip('/')
+        elif not path:
+            path = '/'
+        
+        # Reconstruct URL
+        normalized = urlunparse((scheme, netloc, path, parsed.params, parsed.query, ''))
+        
+        return normalized
+    except Exception:
+        # If parsing fails, return original with basic cleanup
+        return url.strip()
+
+
 def extract_urls_from_text(text: str) -> List[str]:
     if not text:
         return []
@@ -313,8 +365,8 @@ def extract_urls_from_text(text: str) -> List[str]:
     seen = set()
     out = []
     for u in found:
-        u = u.strip().rstrip(')')
-        if u not in seen:
+        u = normalize_url(u)
+        if u and u not in seen:
             seen.add(u)
             out.append(u)
     return out
@@ -413,70 +465,94 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
         return 0
     
     processed_count = 0
-    is_high_risk = False
+    url_risk_scores = []  # Track all risk scores for this email
     
-    # Categorize URLs: threat_urls, existing_email_urls, urls_to_enrich
-    threat_urls = []
-    existing_email_urls = []
-    urls_to_enrich = []
+    print(f'Processing {len(urls)} extracted URLs...')
     
-    # Check all URLs against database
+    # Process each URL with clear, simple logic
     for url in urls:
         try:
-            # Step 1: Check if URL exists in enriched_threats with source_feed != 'email'
+            # Normalize URL for consistent matching
+            normalized_url = normalize_url(url)
+            print(f'\n  Processing: {normalized_url}')
+            
+            # STEP 1: Check if URL exists with source_feed != 'email'
+            # If YES: Mark as 100, link it, DON'T overwrite
             cur.execute(
-                'SELECT id FROM enriched_threats WHERE url = ? AND source_feed != ?',
-                (url, 'email')
+                'SELECT id, source_feed, risk_score FROM enriched_threats WHERE url = ? AND source_feed != ?',
+                (normalized_url, 'email')
             )
-            threat_row = cur.fetchone()
+            threat_match = cur.fetchone()
             
-            if threat_row:
-                threat_urls.append((url, threat_row[0]))
-                is_high_risk = True
-                continue
+            if threat_match:
+                url_id, source_feed, existing_risk = threat_match
+                print(f'    ✓ FOUND in threat feed: {source_feed}')
+                print(f'    → Setting risk_score = 100 (external threat)')
+                
+                # Set risk score to 100 for external threats
+                calculate_and_set_url_risk_score(url_id)
+                url_risk_scores.append(100)
+                
+                # Link to email (don't overwrite the URL entry!)
+                link_email_to_url(email_id, url_id)
+                processed_count += 1
+                continue  # Done with this URL, move to next
             
-            # Step 2: Check if URL exists in enriched_threats with source_feed='email'
+            # STEP 2: Check if URL exists with source_feed = 'email'
+            # If YES: Calculate risk score, link it
             cur.execute(
                 'SELECT id FROM enriched_threats WHERE url = ? AND source_feed = ?',
-                (url, 'email')
+                (normalized_url, 'email')
             )
-            email_source_row = cur.fetchone()
+            email_match = cur.fetchone()
             
-            if email_source_row:
-                existing_email_urls.append((url, email_source_row[0]))
-            else:
-                urls_to_enrich.append(url)
+            if email_match:
+                url_id = email_match[0]
+                print(f'    ✓ FOUND in database (email source)')
                 
+                # Calculate risk score using scoring.py criteria
+                risk_score = calculate_and_set_url_risk_score(url_id)
+                url_risk_scores.append(risk_score if risk_score else 0)
+                print(f'    → Calculated risk_score = {risk_score}')
+                
+                # Link to email
+                link_email_to_url(email_id, url_id)
+                processed_count += 1
+                continue  # Done with this URL, move to next
+            
+            # STEP 3: URL doesn't exist - need to add it
+            # Enrich it and add with source_feed='email'
+            print(f'    → New URL, enriching...')
+            
         except Exception as e:
-            print(f'Error checking URL {url}: {e}')
+            print(f'    ✗ Error checking URL: {e}')
+            continue
     
     con.close()
     
-    # Process threat URLs (already in database, just link them)
-    for url, url_id in threat_urls:
-        link_email_to_url(email_id, url_id)
-        # Ensure risk score is set for external threats
-        calculate_and_set_url_risk_score(url_id)
-        processed_count += 1
-        print(f'⚠️  High risk: URL {url} found in threat feed!')
+    # Now handle new URLs that need enrichment (Step 3 continuation)
+    # Re-open connection and find URLs that weren't processed yet
+    con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
+    cur = con.cursor()
     
-    # Process existing email URLs (just link them)
-    for url, url_id in existing_email_urls:
-        link_email_to_url(email_id, url_id)
-        # Recalculate risk score in case it wasn't set
-        calculate_and_set_url_risk_score(url_id)
-        processed_count += 1
-        print(f'URL {url} already in database (from email source)')
+    urls_to_enrich = []
+    for url in urls:
+        normalized_url = normalize_url(url)
+        # Check if this URL was already processed
+        cur.execute('SELECT id FROM enriched_threats WHERE url = ?', (normalized_url,))
+        if not cur.fetchone():
+            urls_to_enrich.append(normalized_url)
+    
+    con.close()
     
     # Enrich new URLs in parallel using async
     if urls_to_enrich:
-        print(f'Enriching {len(urls_to_enrich)} new URLs in parallel...')
+        print(f'\n  Enriching {len(urls_to_enrich)} new URLs in parallel...')
         
-        # Create thread pool for blocking operations
         executor = ThreadPoolExecutor(max_workers=max_workers)
         
         try:
-            # Create enrichment tasks for all URLs
+            # Create enrichment tasks
             tasks = [
                 enrich_module.enrich_url_async(
                     url, 
@@ -490,61 +566,87 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
             # Process all URLs concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Insert enriched data and link to email
+            # Insert enriched data
             for i, result in enumerate(results):
                 url = urls_to_enrich[i]
                 
                 if isinstance(result, Exception):
-                    print(f'Failed to enrich URL {url}: {result}')
+                    print(f'    ✗ Failed to enrich {url}: {result}')
                     continue
                 
                 try:
-                    # Insert into enriched_threats
-                    enrich_module.insert_enriched_data(THREAT_FEEDS_DB_PATH, result)
-                    
-                    # Get the ID of the newly inserted URL
+                    # Final check before insert (race condition protection)
                     con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
                     cur = con.cursor()
-                    cur.execute('SELECT id FROM enriched_threats WHERE url = ?', (url,))
-                    new_row = cur.fetchone()
-                    con.close()
+                    cur.execute('SELECT id, source_feed FROM enriched_threats WHERE url = ?', (url,))
+                    race_check = cur.fetchone()
                     
-                    if new_row:
-                        url_id = new_row[0]
-                        # Calculate and set risk score for the newly enriched URL
-                        risk_score = calculate_and_set_url_risk_score(url_id)
+                    if race_check:
+                        # URL was added by another process - use existing
+                        url_id, source_feed = race_check
+                        print(f'    ⚠️  {url} was added during enrichment (source: {source_feed})')
+                        con.close()
+                        
+                        if source_feed != 'email':
+                            # It's a threat feed URL now!
+                            risk_score = 100
+                            calculate_and_set_url_risk_score(url_id)
+                        else:
+                            risk_score = calculate_and_set_url_risk_score(url_id)
+                        
+                        url_risk_scores.append(risk_score if risk_score else 0)
                         link_email_to_url(email_id, url_id)
                         processed_count += 1
-                        print(f'✓ Enriched and linked URL: {url} (risk score: {risk_score})')
+                    else:
+                        # Safe to insert
+                        con.close()
+                        enrich_module.insert_enriched_data(THREAT_FEEDS_DB_PATH, result)
+                        
+                        # Get the newly inserted ID
+                        con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
+                        cur = con.cursor()
+                        cur.execute('SELECT id FROM enriched_threats WHERE url = ?', (url,))
+                        new_row = cur.fetchone()
+                        con.close()
+                        
+                        if new_row:
+                            url_id = new_row[0]
+                            risk_score = calculate_and_set_url_risk_score(url_id)
+                            url_risk_scores.append(risk_score if risk_score else 0)
+                            link_email_to_url(email_id, url_id)
+                            processed_count += 1
+                            print(f'    ✓ Enriched and linked: {url} (risk_score: {risk_score})')
                         
                 except Exception as e:
-                    print(f'Failed to insert enriched data for {url}: {e}')
+                    print(f'    ✗ Failed to process {url}: {e}')
         
         finally:
             executor.shutdown(wait=True)
     
-    # Update email risk score to MAX of all linked URLs
-    # This will automatically be 100 if any URL is from a threat feed
-    update_email_risk_score(email_id, risk_score=None)
-    
-    # Get the final risk score for reporting
-    con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
-    cur = con.cursor()
-    cur.execute('SELECT risk_score FROM emails WHERE id = ?', (email_id,))
-    result = cur.fetchone()
-    final_score = result[0] if result else 0
-    con.close()
-    
-    # Report risk level
-    risk_level = scoring.get_risk_level(final_score)
-    if final_score >= 85:
-        print(f'🚨 Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
-    elif final_score >= 70:
-        print(f'⚠️  Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
-    elif final_score >= 50:
-        print(f'⚡ Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
+    # Calculate email risk score as MAX of all URL risk scores
+    if url_risk_scores:
+        max_risk_score = max(url_risk_scores)
     else:
-        print(f'✓ Email {email_id} marked as {risk_level.upper()} RISK (score: {final_score})')
+        max_risk_score = 0
+    
+    # Update email risk score
+    update_email_risk_score(email_id, risk_score=max_risk_score)
+    
+    # Report final risk level
+    risk_level = scoring.get_risk_level(max_risk_score)
+    print(f'\n📊 Email Risk Assessment:')
+    print(f'   Processed {processed_count} URLs')
+    print(f'   URL Risk Scores: {url_risk_scores}')
+    print(f'   Maximum Risk Score: {max_risk_score}')
+    
+    if max_risk_score >= 85:
+        print(f'   🚨 Email {email_id} marked as {risk_level.upper()} RISK')
+    elif max_risk_score >= 70:
+        print(f'   ⚠️  Email {email_id} marked as {risk_level.upper()} RISK')
+    elif max_risk_score >= 50:
+        print(f'   ⚡ Email {email_id} marked as {risk_level.upper()} RISK')
+    else:
+        print(f'   ✓ Email {email_id} marked as {risk_level.upper()} RISK')
     
     return processed_count
 
