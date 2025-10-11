@@ -1166,7 +1166,7 @@ def render_overview_page():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("#### � Threats by Source Feed")
+        st.markdown("####  Threats by Source Feed")
         if not analytics['by_source'].empty:
             fig = px.pie(
                 analytics['by_source'],
