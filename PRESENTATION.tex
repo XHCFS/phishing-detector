@@ -1,0 +1,415 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Boadilla}
+\usecolortheme{whale}
+
+% Use a clean, modern font
+\usefonttheme{professionalfonts}
+
+% Packages
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{amssymb}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+% Custom colors for a clean look
+\definecolor{primary}{RGB}{0,102,204}
+\definecolor{secondary}{RGB}{51,51,51}
+\definecolor{accent}{RGB}{0,153,76}
+\setbeamercolor{frametitle}{bg=primary, fg=white}
+\setbeamercolor{title}{fg=primary}
+\setbeamercolor{subtitle}{fg=secondary}
+\setbeamercolor{author}{fg=secondary}
+\setbeamercolor{institute}{fg=secondary}
+\setbeamercolor{date}{fg=secondary}
+\setbeamercolor{structure}{fg=primary}
+
+% Remove navigation symbols for cleaner look
+\setbeamertemplate{navigation symbols}{}
+
+% Clean footer
+\setbeamertemplate{footline}[frame number]
+
+% Add more spacing between items
+\setlength{\itemsep}{0.5em}
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{enumerate items}[default]
+
+% Tikz styles for diagrams
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=blue!20]
+\tikzstyle{database} = [cylinder, shape border rotate=90, aspect=0.25, minimum height=1cm, minimum width=2cm, draw=black, fill=green!20]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+% Define colors
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\tiny,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% Title page information
+\title[Phishing Detection System]{Automated Phishing Detection System}
+\subtitle{Leveraging Threat Intelligence for Email Security}
+\author{Graduate Project}
+\institute{Communication and Information Engineering Department}
+\date{October 2025}
+
+\begin{document}
+
+% Title slide with custom formatting to ensure visibility
+\begin{frame}[plain]
+\vspace*{2cm}
+\begin{center}
+{\LARGE\textcolor{primary}{\textbf{Automated Phishing Detection System}}}\\[0.5em]
+{\large\textcolor{secondary}{Leveraging Threat Intelligence for Email Security}}\\[2em]
+{\normalsize Graduate Project}\\[0.5em]
+{\small Communication and Information Engineering Department}\\[1em]
+{\small October 2025}
+\end{center}
+\end{frame}
+
+% Slide 1: Problem Statement
+\begin{frame}{The Challenge}
+\vspace{1em}
+\begin{center}
+\Large
+Phishing attacks are \textbf{increasingly sophisticated}\\[0.5em]
+Traditional defenses are \textbf{inadequate}
+\end{center}
+
+\vspace{2em}
+
+\begin{columns}[c]
+\column{0.5\textwidth}
+\centering
+\textcolor{red}{\Huge 94\%}\\[0.5em]
+\large Organizations experienced\\phishing attacks in 2024
+
+\column{0.5\textwidth}
+\centering
+\textcolor{red}{\Huge 95\%}\\[0.5em]
+\large Manual analysis time\\can be saved
+\end{columns}
+
+\vspace{2em}
+
+\begin{center}
+\large \textbf{We need automated, intelligent detection}
+\end{center}
+\end{frame}
+
+% Slide 2: Our Solution
+\begin{frame}{Our Solution}
+\vspace{2em}
+\begin{center}
+\begin{tikzpicture}[scale=0.9, every node/.style={scale=0.9}]
+    % Threat feeds
+    \node (phishtank) [process, fill=red!30] at (0,1.5) {PhishTank};
+    \node (urlhaus) [process, fill=red!30] at (0,0) {URLhaus};
+    \node (openphish) [process, fill=red!30] at (0,-1.5) {OpenPhish};
+    
+    % Database
+    \node (db) [database] at (5,0) {Database\\52K URLs};
+    
+    % Analysis
+    \node (analysis) [process, fill=green!30] at (10,0) {Risk\\Scoring};
+    
+    % Arrows
+    \draw [arrow] (phishtank) -- (db);
+    \draw [arrow] (urlhaus) -- (db);
+    \draw [arrow] (openphish) -- (db);
+    \draw [arrow] (db) -- (analysis);
+\end{tikzpicture}
+\end{center}
+
+\vspace{2em}
+
+\begin{center}
+\large
+\textbf{Multi-source intelligence} $\rightarrow$ \textbf{Enrichment} $\rightarrow$ \textbf{Risk scoring}\\[0.5em]
+\normalsize
+Achieving \textbf{10x performance improvement}
+\end{center}
+\end{frame}
+
+% Slide 3: System Architecture
+\begin{frame}{System Architecture}
+\begin{center}
+\begin{tikzpicture}[node distance=1.5cm, scale=0.9, every node/.style={scale=0.9}]
+    % Modules
+    \node (gmail) [process, fill=blue!30, minimum width=2.8cm] {Gmail API};
+    \node (detector) [process, fill=orange!30, below of=gmail, minimum width=2.8cm] {Detector};
+    \node (database) [database, right of=detector, xshift=2.8cm] {Database};
+    \node (enrichment) [process, fill=green!30, below of=detector, minimum width=2.8cm] {Enrichment};
+    \node (dashboard) [process, fill=cyan!30, below of=enrichment, minimum width=2.8cm] {Dashboard};
+    
+    % Arrows
+    \draw [arrow] (gmail) -- (detector);
+    \draw [arrow] (detector) -- (database);
+    \draw [arrow] (detector) -- (enrichment);
+    \draw [arrow] (enrichment) -- (database);
+    \draw [arrow] (database) -- (dashboard);
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.7em}
+
+\begin{columns}[c]
+\column{0.5\textwidth}
+\textbf{Technologies:}
+\begin{itemize}
+    \item Python 3.11
+    \item FastAPI + Streamlit
+    \item SQLite Database
+    \item OAuth 2.0
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Key Features:}
+\begin{itemize}
+    \item Modular design
+    \item Async processing
+    \item RESTful API
+    \item Real-time dashboard
+\end{itemize}
+\end{columns}
+\end{frame}
+
+% Slide 4: Risk Scoring Algorithm
+\begin{frame}{Risk Scoring Algorithm}
+\vspace{0.5em}
+\begin{center}
+\Large \textbf{Intelligent 0-100 Threat Assessment}
+\end{center}
+
+\vspace{1.5em}
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+\textbf{Factor} & \textbf{Weight} \\
+\midrule
+\textbf{Liveness} (Is URL active?) & 35\% \\
+\textbf{Recency} (Recently reported?) & 25\% \\
+\textbf{Domain Age} (Newly created?) & 20\% \\
+\textbf{TLD} (Suspicious extension?) & 10\% \\
+\textbf{Keywords} (Phishing terms?) & 10\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1.5em}
+
+\begin{columns}[c]
+\column{0.25\textwidth}
+\centering
+\textcolor{red}{\Large \textbf{85-100}}\\
+Critical
+
+\column{0.25\textwidth}
+\centering
+\textcolor{orange}{\Large \textbf{70-84}}\\
+High
+
+\column{0.25\textwidth}
+\centering
+\textcolor{yellow!70!black}{\Large \textbf{50-69}}\\
+Medium
+
+\column{0.25\textwidth}
+\centering
+\textcolor{green}{\Large \textbf{0-49}}\\
+Low
+\end{columns}
+\end{frame}
+
+% Slide 5: Real Example
+\begin{frame}{Real Phishing Detection Example}
+
+\begin{block}{Suspicious Email Received}
+\textbf{Subject:} "Verify your account now"\\
+\textbf{From:} suspicious@temp-mail.io\\
+\textbf{URL:} https://secure-login.zip/verify
+\end{block}
+
+\vspace{0.8em}
+
+\begin{center}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Analysis Factor} & \textbf{Finding} & \textbf{Points} \\
+\midrule
+URL is live (HTTP 200) & Yes & 35 \\
+Recently reported & Today & 25 \\
+Domain age & 2 days old & 20 \\
+Suspicious TLD & .zip & 10 \\
+Phishing keywords & "login", "verify" & 10 \\
+\midrule
+\textbf{Total Risk Score} & & \textcolor{red}{\textbf{100}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.8em}
+
+\begin{center}
+\Large \textcolor{red}{\textbf{CRITICAL THREAT}} - Automatically blocked
+\end{center}
+\end{frame}
+
+% Slide 6: Results
+\begin{frame}{Performance \& Results}
+\vspace{0.5em}
+
+\begin{columns}[c]
+\column{0.33\textwidth}
+\begin{center}
+\textcolor{accent}{\Huge \textbf{94\%}}\\[0.3em]
+\large Detection\\Accuracy
+\end{center}
+
+\column{0.33\textwidth}
+\begin{center}
+\textcolor{accent}{\Huge \textbf{10x}}\\[0.3em]
+\large Performance\\Improvement
+\end{center}
+
+\column{0.33\textwidth}
+\begin{center}
+\textcolor{accent}{\Huge \textbf{52K}}\\[0.3em]
+\large Threat\\Indicators
+\end{center}
+\end{columns}
+
+\vspace{2em}
+
+\begin{columns}[c]
+\column{0.5\textwidth}
+\textbf{Speed Comparison:}
+\begin{itemize}
+    \item 10 URLs: 45s → 4.2s
+    \item 100 URLs: 7.5min → 42s
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Detection Rates:}
+\begin{itemize}
+    \item Known threats: 100\%
+    \item Novel threats: 87\%
+    \item False positives: 2\%
+\end{itemize}
+\end{columns}
+\end{frame}
+
+% Slide 7: Future Work
+\begin{frame}{Future Enhancements}
+\vspace{1em}
+
+\begin{itemize}
+    \setlength\itemsep{1em}
+    
+    \item \textbf{Machine Learning Integration}
+    \begin{itemize}
+        \item NLP-based email content analysis
+        \item Behavioral pattern detection
+    \end{itemize}
+    
+    \item \textbf{Real-time Monitoring}
+    \begin{itemize}
+        \item Streaming threat feed updates
+        \item Live dashboard notifications
+    \end{itemize}
+    
+    \item \textbf{Campaign Clustering}
+    \begin{itemize}
+        \item Graph-based infrastructure analysis
+        \item Attack pattern correlation
+    \end{itemize}
+    
+    \item \textbf{Enterprise Integration}
+    \begin{itemize}
+        \item SIEM/SOAR platform connectors
+        \item Automated incident response
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+% Slide 8: Conclusion
+\begin{frame}{Conclusion}
+\vspace{1em}
+
+\begin{center}
+\Large
+\textbf{Automated Phishing Detection System}\\[0.7em]
+\normalsize
+Combining threat intelligence, machine analysis,\\
+and modern web technologies
+\end{center}
+
+\vspace{1.5em}
+
+\begin{columns}[c]
+\column{0.5\textwidth}
+\textbf{Key Achievements:}
+\begin{itemize}
+    \item 94\% detection accuracy
+    \item 10x performance gain
+    \item 52K+ threat indicators
+    \item Open source (MIT)
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Impact:}
+\begin{itemize}
+    \item 95\% time savings
+    \item Proactive threat hunting
+    \item Intelligence sharing
+    \item Enterprise-ready
+\end{itemize}
+\end{columns}
+
+\vspace{2em}
+
+\begin{center}
+\small
+\textbf{github.com/XHCFS/phishing-detector}
+\end{center}
+\end{frame}
+
+% Final slide: Questions
+\begin{frame}[plain]
+\vspace*{\fill}
+\begin{center}
+\Huge \textbf{Questions?}\\[2em]
+\Large Thank you for your attention!\\[2em]
+\normalsize
+\textbf{Repository:} github.com/XHCFS/phishing-detector\\
+\textbf{Documentation:} Comprehensive guides included
+\end{center}
+\vspace*{\fill}
+\end{frame}
+
+\end{document}
