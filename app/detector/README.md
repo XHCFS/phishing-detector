@@ -353,7 +353,7 @@ python -m app.detector.core --enrich-all
 
 ## Documentation
 
-- **[DETECTOR_GUIDE.md](Documentation/DETECTOR_GUIDE.md)** - Complete technical documentation (680 lines)
+- **[DETECTOR_GUIDE.md](Documentation/DETECTOR_GUIDE.md)** - Complete technical documentation 
   - Detailed architecture and data flow
   - Gmail OAuth setup guide
   - URL extraction and normalization
