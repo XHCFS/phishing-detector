@@ -1,8 +1,8 @@
 # Phishing Detector: Threat Intelligence System
 ## Technical Report
 
-**Author:** [Your Name]  
-**Institution:** [Your Institution]  
+**Author:** Aser Osama - Saif Ismail - Omar Ayman 
+**Institution:**  University of Science and Technology Zewail city 
 **Date:** October 12, 2025  
 **Version:** 1.0
 
@@ -36,7 +36,7 @@ This report presents a comprehensive phishing detection and threat intelligence 
 
 ### 1.1 Problem Statement
 
-Phishing attacks remain one of the most prevalent and effective cyber threats, with over 255 million attacks reported in 2022 [1]. Traditional reactive approaches—detecting phishing after user reports—leave organizations vulnerable during the critical window between attack launch and detection. The proliferation of ephemeral hosting platforms, domain generation algorithms, and sophisticated social engineering techniques further complicates detection efforts.
+Phishing attacks remain one of the most prevalent and effective cyber threats, with over 255 million attacks reported in 2022 [2]. Traditional reactive approaches—detecting phishing after user reports—leave organizations vulnerable during the critical window between attack launch and detection. The proliferation of ephemeral hosting platforms, domain generation algorithms, and sophisticated social engineering techniques further complicates detection efforts.
 
 ### 1.2 Objectives
 
@@ -72,6 +72,38 @@ Out of scope: Content analysis, machine learning classification, email header an
 
 ### 2.1 Phishing Threat Landscape
 
+#### 2.1.1 Phishing Techniques (MITRE ATT&CK T1566)
+
+**MITRE ATT&CK Technique T1566: Phishing**
+
+**Overview**
+
+Phishing (T1566) is classified under the Initial Access tactic in the MITRE ATT&CK framework [1]. It includes all adversary behaviors involving deceptive, electronically delivered messages designed to trick recipients into executing malicious actions. These malicious actions include opening attachments, clicking links, or granting application access that enable initial compromise or credential/token theft.
+
+**Sub-Techniques**
+
+According to MITRE ATT&CK, there are four sub-techniques for T1566, each representing a distinct delivery or interaction method:
+
+**1. Spearphishing Attachment (T1566.001)**
+
+Adversaries may send spearphishing emails with a malicious attachment in an attempt to gain access to victim systems. Spearphishing attachment is a specific variant of spearphishing that employs the use of malware attached to an email. All forms of spearphishing are electronically delivered social engineering targeted at a specific individual, company, or industry. In this scenario, adversaries attach a file to the spearphishing email and usually rely upon user execution to gain execution. Spearphishing may also involve social engineering techniques, such as posing as a trusted source.
+
+There are many options for the attachment such as Microsoft Office documents, executables, PDFs, or archived files. Upon opening the attachment (and potentially clicking past protections), the adversary's payload exploits a vulnerability or directly executes on the user's system.
+
+**2. Spearphishing Link (T1566.002)**
+
+Adversaries may also include links that are intended to interact directly with an email reader, including embedded images intended to exploit the end system directly. Additionally, adversaries may use seemingly benign links that abuse special characters to mimic legitimate websites (known as an "IDN homograph attack"). URLs may also be obfuscated by taking advantage of quirks in the URL schema, such as the acceptance of integer- or hexadecimal-based hostname formats and the automatic discarding of text before an "@" symbol: for example, hxxp://google.com@1157586937. This kind of adversaries can be detected using URL analyzers, which automatically inspect for suspicious patterns as homograph attacks (lookalike domains) or by monitoring each received email content for unauthorized or suspicious changes.
+
+**3. Spearphishing via Service (T1566.003)**
+
+In this scenario, adversaries send messages through various social media services, personal webmail, and other non-enterprise controlled services. These services are more likely to have a less-strict security policy than an enterprise. As with most kinds of spearphishing, the goal is to generate rapport with the target or get the target's interest in some way. Adversaries will create fake social media accounts and message employees for potential job opportunities. Doing so allows a plausible reason for asking about services, policies, and software that's running in an environment. The adversary can then send malicious links or attachments through these services. This kind of adversaries can be avoided by monitoring logs from different platforms like LinkedIn, Microsoft Teams, or any other collaboration platform for any suspicious activity. Another way is to train users and employees to easily identify potential adversaries through unusual activities.
+
+**4. Spearphishing Voice (T1566.004)**
+
+Here, adversaries are not directly sending malware to a victim vice relying on user execution for delivery and execution. For example, victims may receive phishing messages that instruct them to call a phone number where they are directed to visit a malicious URL, download malware or install adversary-accessible remote management tools (Remote Access Tools) onto their computer. An example of this behavior is the recent wave of adversaries to compromise bank accounts in Egypt, relying on the victim's unawareness of potential scams.
+
+#### 2.1.2 Modern Phishing Characteristics
+
 Phishing attacks exploit human psychology rather than technical vulnerabilities, making them persistently effective despite decades of awareness training. Modern phishing campaigns exhibit several characteristics:
 
 **URL Obfuscation:** Attackers use:
@@ -80,7 +112,7 @@ Phishing attacks exploit human psychology rather than technical vulnerabilities,
 - URL shorteners to hide destination
 - Free hosting platforms to reduce operational costs
 
-**Temporal Dynamics:** Average phishing site lifespan is 4-8 hours [2], requiring real-time detection and rapid response.
+**Temporal Dynamics:** Average phishing site lifespan is 4-8 hours [3], requiring real-time detection and rapid response.
 
 **Geographic Distribution:** Phishing infrastructure concentrates in jurisdictions with weak cybercrime enforcement, though legitimate CDN services (Cloudflare, AWS) increasingly host phishing content.
 
@@ -466,7 +498,7 @@ Domain age >90 days      → 5 pts  (Established)
 No creation_date         → 8 pts  (Unknown - assume moderate risk)
 ```
 
-**Rationale:** Research shows 60-70% of phishing domains are registered within 30 days of attack [3]. Legitimate domains are typically months/years old.
+**Rationale:** Research shows 60-70% of phishing domains are registered within 30 days of attack [4]. Legitimate domains are typically months/years old.
 
 **Data Source:** `creation_date` from WHOIS (success rate: 31%)
 
@@ -493,7 +525,7 @@ Other TLD + standard hosting                      → 7 pts
 No TLD data                                       → 7 pts (Moderate risk)
 ```
 
-**Rationale:** TLDs like .zip are 10x more likely to host phishing than .com [4]. Free platforms require no payment info, enabling quick setup and abandonment.
+**Rationale:** TLDs like .zip are 10x more likely to host phishing than .com [5]. Free platforms require no payment info, enabling quick setup and abandonment.
 
 #### 6.2.5 Keywords Score (0-10 points)
 
@@ -1040,21 +1072,23 @@ By open-sourcing this system, we enable the security community to collaborativel
 
 ## 11. References
 
-[1] APWG. "Phishing Activity Trends Report, 4th Quarter 2022." Anti-Phishing Working Group, 2023.
+[1] MITRE ATT&CK. "T1566: Phishing." https://attack.mitre.org/techniques/T1566/
 
-[2] Hong, J. "The State of Phishing Attacks." Communications of the ACM, 2012.
+[2] APWG. "Phishing Activity Trends Report, 4th Quarter 2022." Anti-Phishing Working Group, 2023.
 
-[3] Moore, T., & Clayton, R. "Examining the Impact of Website Take-down on Phishing." In Proceedings of the Anti-Phishing Working Groups 2nd Annual eCrime Researchers Summit, 2007.
+[3] Hong, J. "The State of Phishing Attacks." Communications of the ACM, 2012.
 
-[4] Oest, A., et al. "Inside a Phisher's Mind: Understanding the Anti-Phishing Ecosystem Through Phishing Kit Analysis." In USENIX Security Symposium, 2018.
+[4] Moore, T., & Clayton, R. "Examining the Impact of Website Take-down on Phishing." In Proceedings of the Anti-Phishing Working Groups 2nd Annual eCrime Researchers Summit, 2007.
 
-[5] OASIS. "STIX Version 2.1." Organization for the Advancement of Structured Information Standards, 2021.
+[5] Oest, A., et al. "Inside a Phisher's Mind: Understanding the Anti-Phishing Ecosystem Through Phishing Kit Analysis." In USENIX Security Symposium, 2018.
 
-[6] Garera, S., et al. "A Framework for Detection and Measurement of Phishing Attacks." In Proceedings of the 2007 ACM Workshop on Recurring Malcode, 2007.
+[6] OASIS. "STIX Version 2.1." Organization for the Advancement of Structured Information Standards, 2021.
 
-[7] Marchal, S., et al. "Know Your Phish: Novel Techniques for Detecting Phishing Sites and Their Targets." In IEEE 36th International Conference on Distributed Computing Systems (ICDCS), 2016.
+[7] Garera, S., et al. "A Framework for Detection and Measurement of Phishing Attacks." In Proceedings of the 2007 ACM Workshop on Recurring Malcode, 2007.
 
-[8] Khonji, M., Iraqi, Y., & Jones, A. "Phishing Detection: A Literature Survey." IEEE Communications Surveys & Tutorials, 2013.
+[8] Marchal, S., et al. "Know Your Phish: Novel Techniques for Detecting Phishing Sites and Their Targets." In IEEE 36th International Conference on Distributed Computing Systems (ICDCS), 2016.
+
+[9] Khonji, M., Iraqi, Y., & Jones, A. "Phishing Detection: A Literature Survey." IEEE Communications Surveys & Tutorials, 2013.
 
 ---
 
@@ -1081,9 +1115,4 @@ See `app/detector/Documentation/DETECTOR_GUIDE.md`
 See `app/dashboard/Documentation/DASHBOARD_GUIDE.md`
 
 ---
-
 **End of Report**
-
-**Word Count:** ~8,200 words (~10-11 pages single-spaced)
-
-**Total Documentation:** This report + module-specific guides = 15,000+ words
