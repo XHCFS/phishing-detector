@@ -196,14 +196,33 @@ Analyze a specific email.
 
 ## Running the Application
 
-### Method 1: Using run.sh (Recommended)
+### Method 1: Using Centralized Runner (Recommended)
 ```bash
-./run.sh
+# Start API server
+python run.py api
+
+# With auto-reload for development
+python run.py api --reload
+
+# Custom host and port
+python run.py api --host 127.0.0.1 --port 8080
+
+# Start dashboard
+python run.py dashboard
 ```
 
-This starts the FastAPI server on **http://localhost:8000**
+### Method 2: Using Shell Scripts
+```bash
+# Bash
+./run.sh                # API server
+./run_dashboard.sh      # Dashboard
 
-### Method 2: Direct uvicorn Command
+# Fish shell
+./run.fish              # API server
+./run_dashboard.fish    # Dashboard
+```
+
+### Method 3: Direct uvicorn Command
 ```bash
 # Development mode (auto-reload)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -212,7 +231,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-### Method 3: From Python
+### Method 4: From Python
 ```python
 import uvicorn
 uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

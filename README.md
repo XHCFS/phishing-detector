@@ -30,17 +30,27 @@ cd phishing-detector
 
 Run the automated setup:
 
-```bash 
-./setup.sh
+```bash
+# Using the centralized runner (recommended)
+python run.py setup
+
+# Or using shell scripts
+./setup.sh          # Bash
+./setup.fish        # Fish shell
 ```
 
 Start the application:
 
 ```bash
-./run.sh
+# Using the centralized runner (recommended)
+python run.py api
+
+# Or using shell scripts
+./run.sh            # Bash
+./run.fish          # Fish shell
 ```
 
-The setup script will:
+The setup will:
 - Create a Python virtual environment
 - Install all dependencies
 - Initialize the threat feeds database
@@ -93,17 +103,28 @@ URLHAUS_API_KEY=your_key_here
 
 ### Start the Application
 ```bash
-./run.sh
+# Centralized runner (recommended)
+python run.py api              # FastAPI server
+python run.py dashboard        # Streamlit dashboard
+
+# Shell scripts
+./run.sh                       # FastAPI (Bash)
+./run.fish                     # FastAPI (Fish)
+./run_dashboard.sh             # Dashboard (Bash)
+./run_dashboard.fish           # Dashboard (Fish)
 ```
 
-Access the dashboard at: http://localhost:8000
+Access the API at: http://localhost:8000  
+Access the dashboard at: http://localhost:8501
 
 ### Update Threat Feeds
 ```bash
-# Update raw threat feeds
-python -m app.database.grabrawdata
+# Centralized runner (recommended)
+python run.py fetch                                    # Update raw threat feeds
+python run.py enrich --limit 1000 --skip-existing     # Enrich new URLs
 
-# Enrich new URLs (process 1000 at a time)
+# Direct module calls
+python -m app.database.grabrawdata
 python -m app.database.enrich --limit 1000 --skip-existing
 ```
 
@@ -125,8 +146,11 @@ phishing-detector/
 │   │       └── Data Sources.md    # Threat feed details
 │   ├── detector/           # Phishing detection logic
 │   └── dashboard/          # Web interface
-├── setup.sh                # Automated setup script
-├── run.sh                  # Start application
+├── run.py                  # Centralized runner (recommended)
+├── commands.py             # Command reference
+├── setup.sh / setup.fish   # Setup scripts
+├── run.sh / run.fish       # Start API scripts
+├── run_dashboard.sh / run_dashboard.fish  # Start dashboard scripts
 └── requirements.txt        # Python dependencies
 ```
 
@@ -140,26 +164,70 @@ phishing-detector/
 
 ---
 
+## Command Reference
+
+For a complete list of all available commands and options:
+
+```bash
+# View all commands
+python run.py --help
+
+# View command-specific help
+python run.py setup --help
+python run.py enrich --help
+python run.py api --help
+
+# Quick reference
+python commands.py
+```
+
+### Common Commands
+
+```bash
+# Setup and initialization
+python run.py setup                    # Full setup
+python run.py setup --fast-enrich      # Quick setup
+python run.py db                       # Init databases only
+
+# Data management
+python run.py fetch                    # Fetch threat feeds
+python run.py enrich --limit 100       # Enrich 100 URLs
+python run.py enrich --skip-existing   # Skip already enriched
+
+# Email detection
+python run.py auth                     # Gmail authentication
+python run.py emails --count 10        # Fetch 10 emails
+python run.py enrich-emails            # Enrich fetched emails
+
+# Services
+python run.py api                      # Run API server
+python run.py api --reload             # Run with auto-reload
+python run.py dashboard                # Run dashboard
+```
+
 ## Troubleshooting
 
 ### Setup Issues
 
 **"Virtual environment not found"**
 ```bash
-./setup.sh
+python run.py setup
+# Or: ./setup.sh (Bash) or ./setup.fish (Fish)
 ```
 
 **"Database initialization failed"**
 ```bash
-python -m app.database.rawdb
-python -m app.database.grabrawdata
-python -m app.database.db
+python run.py db
+# Or manually:
+# python -m app.database.rawdb
+# python -m app.database.db
 ```
 
 **"No threat data"**
 ```bash
 # Ensure you have internet connection, then:
-python -m app.database.grabrawdata
+python run.py fetch
+# Or: python -m app.database.grabrawdata
 ```
 
 ### More Help

@@ -1,27 +1,26 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/env fish
 
-VENV_DIR=".venv"
-VENV_PYTHON="$VENV_DIR/bin/python"
+set VENV_DIR ".venv"
+set VENV_PYTHON "$VENV_DIR/bin/python"
 
-if [ ! -d "$VENV_DIR" ]; then
+if not test -d $VENV_DIR
     echo "❌ Virtual environment not found. Run: python run.py setup"
     exit 1
-fi
+end
 
-if [ ! -f "$VENV_PYTHON" ]; then
+if not test -f $VENV_PYTHON
     echo "❌ Python not found in venv. Run: python run.py setup"
     exit 1
-fi
+end
 
-TOKEN_PATH="app/detector/token.json"
-if [ ! -f "$TOKEN_PATH" ]; then
+set TOKEN_PATH "app/detector/token.json"
+if not test -f $TOKEN_PATH
     echo "⚠️  Gmail OAuth token not found."
     echo "   Run: python run.py auth"
     echo ""
-fi
+end
 
-"$VENV_PYTHON" -c "
+$VENV_PYTHON -c "
 import sqlite3
 from pathlib import Path
 print('📊 Threat Database Status:')
@@ -45,7 +44,7 @@ try:
         print('   ⚠️ Database not found. Run: python run.py setup')
 except Exception as e:
     print(f'   ⚠️ Could not read database: {e}')
-" 2>/dev/null || echo "   ⚠️ Database check failed"
+" 2>/dev/null; or echo "   ⚠️ Database check failed"
 
 echo ""
 echo "🚀 Starting FastAPI server..."
@@ -53,5 +52,4 @@ echo "   URL: http://127.0.0.1:8000"
 echo "   Press Ctrl+C to stop"
 echo ""
 
-"$VENV_PYTHON" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
+$VENV_PYTHON -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

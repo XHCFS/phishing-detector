@@ -15,6 +15,44 @@ pip install python-whois geoip2 ipwhois langdetect
 
 ### Setup (5 minutes)
 
+#### Using Centralized Runner (Recommended)
+```bash
+# Full setup (all-in-one)
+python run.py setup
+
+# Or step by step
+python run.py db             # Create databas## Summary
+
+**Quick Setup (Centralized Runner):**
+```bash
+python run.py setup                # Full setup (all-in-one)
+# Or step by step:
+python run.py db                   # Create databases
+python run.py fetch                # Populate threat feeds
+python run.py enrich --limit 10    # Test enrichment
+```
+
+**Manual Setup (Direct Module Calls):**
+1. `python -m app.database.rawdb` - Create raw DB
+2. `python -m app.database.grabrawdata` - Populate raw DB
+3. `python -m app.database.db` - Create enriched DB
+4. `python -m app.database.enrich --limit 10` - Test enrichment
+
+**Daily Maintenance (Fast Mode):**
+```bash
+# Using centralized runner (recommended)
+python run.py fetch
+python run.py enrich --skip-existing --limit 5000 --disable-page-content
+
+# Or direct module calls
+python -m app.database.grabrawdata
+python -m app.database.enrich --skip-existing --limit 5000 \
+  --disable-page-content --concurrency 100
+```py fetch          # Populate threat feeds
+python run.py enrich --limit 10  # Test enrichment
+```
+
+#### Using Direct Module Calls
 **1. Create Raw Database**
 ```bash
 python -m app.database.rawdb
@@ -224,10 +262,12 @@ FROM enriched_threats;
 ### Daily Updates
 
 ```bash
-# Update raw feeds (safe to run daily - idempotent)
-python -m app.database.grabrawdata
+# Using centralized runner (recommended)
+python run.py fetch
+python run.py enrich --skip-existing --limit 5000 --disable-page-content
 
-# Fast enrichment of new URLs (recommended for daily updates)
+# Or using direct module calls
+python -m app.database.grabrawdata
 python -m app.database.enrich --skip-existing --limit 5000 \
   --disable-page-content --concurrency 100
 ```
@@ -238,9 +278,13 @@ python -m app.database.enrich --skip-existing --limit 5000 \
 # Edit crontab
 crontab -e
 
-# Add daily updates at 2 AM (fast mode for quick updates)
-0 2 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.grabrawdata >> /var/log/threat_feeds.log 2>&1
-0 3 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.enrich --skip-existing --limit 5000 --disable-page-content --concurrency 100 >> /var/log/enrichment.log 2>&1
+# Add daily updates at 2 AM (using centralized runner)
+0 2 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python run.py fetch >> /var/log/threat_feeds.log 2>&1
+0 3 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python run.py enrich --skip-existing --limit 5000 --disable-page-content >> /var/log/enrichment.log 2>&1
+
+# Or using direct module calls
+# 0 2 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.grabrawdata >> /var/log/threat_feeds.log 2>&1
+# 0 3 * * * cd /path/to/phishing-detector && /path/to/venv/bin/python -m app.database.enrich --skip-existing --limit 5000 --disable-page-content --concurrency 100 >> /var/log/enrichment.log 2>&1
 ```
 
 ---
