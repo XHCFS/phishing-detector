@@ -5,8 +5,12 @@ Interactive web interface for visualizing and analyzing threat intelligence data
 ## Quick Start
 
 ```bash
-# Start the dashboard
-./run_dashboard.sh
+# Using centralized runner (recommended)
+python run.py dashboard
+
+# Or using shell scripts
+./run_dashboard.sh          # Bash
+./run_dashboard.fish        # Fish
 
 # Or directly
 streamlit run app/dashboard/frontend.py
@@ -133,6 +137,10 @@ DB_PATH = Path("/custom/path/threat_feeds.db")
 
 Change:
 ```bash
+# Using centralized runner
+python run.py dashboard --port 8502
+
+# Or directly
 streamlit run app/dashboard/frontend.py --server.port 8502
 ```
 
@@ -204,7 +212,11 @@ app/dashboard/
 
 **"Database not found"**
 ```bash
-# Create and populate database
+# Using centralized runner (recommended)
+python run.py db
+python run.py enrich --limit 100
+
+# Or direct module calls
 python -m app.database.db
 python -m app.database.enrich --limit 100
 ```
@@ -215,7 +227,8 @@ python -m app.database.enrich --limit 100
 pkill -f streamlit
 
 # Or use different port
-streamlit run app/dashboard/frontend.py --server.port 8502
+python run.py dashboard --port 8502
+# Or: streamlit run app/dashboard/frontend.py --server.port 8502
 ```
 
 ### No Data in Charts
@@ -225,7 +238,8 @@ streamlit run app/dashboard/frontend.py --server.port 8502
 sqlite3 app/database/threat_feeds.db "SELECT COUNT(*) FROM enriched_threats"
 
 # If 0, enrich data
-python -m app.database.enrich --limit 500
+python run.py enrich --limit 500
+# Or: python -m app.database.enrich --limit 500
 ```
 
 ### Slow Performance

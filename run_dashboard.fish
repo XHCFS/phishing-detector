@@ -1,32 +1,30 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/env fish
 
-VENV_DIR=".venv"
-VENV_PYTHON="$VENV_DIR/bin/python"
+set VENV_DIR ".venv"
+set VENV_PYTHON "$VENV_DIR/bin/python"
 
-if [ ! -d "$VENV_DIR" ]; then
+if not test -d $VENV_DIR
     echo "❌ Virtual environment not found. Run: python run.py setup"
     exit 1
-fi
+end
 
-if [ ! -f "$VENV_PYTHON" ]; then
+if not test -f $VENV_PYTHON
     echo "❌ Python not found in venv. Run: python run.py setup"
     exit 1
-fi
+end
 
-if [ ! -f "app/database/threat_feeds.db" ]; then
+if not test -f "app/database/threat_feeds.db"
     echo "❌ Enriched database not found."
     echo "   Run: python run.py enrich"
     exit 1
-fi
+end
 
 echo "📊 Starting Threat Intelligence Dashboard..."
 echo "   URL: http://localhost:8501"
 echo "   Press Ctrl+C to stop"
 echo ""
 
-"$VENV_PYTHON" -m streamlit run app/dashboard/frontend.py \
+$VENV_PYTHON -m streamlit run app/dashboard/frontend.py \
     --server.port 8501 \
     --server.address localhost \
     --browser.gatherUsageStats false
-

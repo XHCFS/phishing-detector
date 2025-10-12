@@ -11,13 +11,21 @@ Email analysis system that fetches emails from Gmail, extracts URLs, and calcula
 cp ~/Downloads/credentials.json app/detector/credentials.json
 
 # Authenticate (opens browser for OAuth)
+# Using centralized runner (recommended)
+python run.py auth
+
+# Or direct module call
 python -m app.detector.core --authenticate
 ```
 
 ### 2. Fetch and Analyze Emails
 
 ```bash
-# Bootstrap: Setup + Fetch + Analyze (all-in-one)
+# Using centralized runner (recommended)
+python run.py emails --count 25
+python run.py enrich-emails
+
+# Or direct module call (bootstrap: all-in-one)
 python -m app.detector.core --bootstrap --max-fetch 25
 ```
 
@@ -51,7 +59,25 @@ Email risk_score = MAX(all URL scores)
 
 ## Command Reference
 
-### Setup
+### Using Centralized Runner (Recommended)
+
+```bash
+# Authenticate with Gmail
+python run.py auth
+
+# Fetch emails
+python run.py emails --count 25
+
+# Enrich fetched emails
+python run.py enrich-emails
+
+# Or enrich specific email (use direct module call)
+python -m app.detector.core --enrich-email msg123abc
+```
+
+### Using Direct Module Calls
+
+#### Setup
 
 ```bash
 # Create database tables
@@ -61,7 +87,7 @@ python -m app.detector.core --setup-db
 python -m app.detector.core --authenticate
 ```
 
-### Fetch Emails
+#### Fetch Emails
 
 ```bash
 # Fetch 25 emails (default)
@@ -74,7 +100,7 @@ python -m app.detector.core --fetch 100
 python -m app.detector.core --fetch --credentials /path/to/credentials.json
 ```
 
-### Enrich URLs
+#### Enrich URLs
 
 ```bash
 # Enrich specific email
@@ -84,14 +110,14 @@ python -m app.detector.core --enrich-email msg123abc
 python -m app.detector.core --enrich-all
 ```
 
-### Bootstrap (All-in-One)
+#### Bootstrap (All-in-One)
 
 ```bash
 # Setup DB + Fetch 50 emails + Enrich
 python -m app.detector.core --bootstrap --max-fetch 50
 ```
 
-### Testing
+#### Testing
 
 ```bash
 # Insert sample email for testing
