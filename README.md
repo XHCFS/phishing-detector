@@ -323,19 +323,19 @@ See [Database README](app/database/README.md) for database-specific troubleshoot
 
 ### Module Documentation
 - **[Database Module](app/database/README.md)** - Threat feed collection and enrichment
-  - [Complete Database Guide](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) (985 lines)
+  - [Complete Database Guide](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) 
   - [Data Sources](app/database/Documentation%20%26%20Sources%20Research/Data%20Sources.md)
 
 - **[Detector Module](app/detector/README.md)** - Email analysis and risk scoring
-  - [Complete Detector Guide](app/detector/Documentation/DETECTOR_GUIDE.md) (680 lines)
+  - [Complete Detector Guide](app/detector/Documentation/DETECTOR_GUIDE.md) 
 
 - **[Dashboard Module](app/dashboard/README.md)** - Web visualization
-  - [Complete Dashboard Guide](app/dashboard/Documentation/DASHBOARD_GUIDE.md) (850 lines)
+  - [Complete Dashboard Guide](app/dashboard/Documentation/DASHBOARD_GUIDE.md) 
 
 - **[App Module](app/README.md)** - Main application and API
 
 ### Technical Documentation
-- **[Technical Report](TECHNICAL_REPORT.md)** (8,200 words, 10-11 pages)
+- **[Technical Report](TECHNICAL_REPORT.md)**
   - Introduction and background
   - System architecture
   - Data sources and enrichment methodology
