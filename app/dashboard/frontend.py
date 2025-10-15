@@ -32,8 +32,8 @@ ROWS_PER_PAGE = 50
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="Threat Intelligence Dashboard",
-    page_icon="�",
+    page_title="Phishing Email Detector - Dashboard",
+    page_icon="📧",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -838,7 +838,7 @@ def render_main_table(df: pd.DataFrame, total: int, page: int, page_size: int):
     # Display table
     st.dataframe(
         display_df.drop('id', axis=1, errors='ignore'),
-        use_container_width=True,
+        width='stretch',
         hide_index=True
     )
     
@@ -849,7 +849,7 @@ def render_main_table(df: pd.DataFrame, total: int, page: int, page_size: int):
     
     with col1:
         if page > 0:
-            if st.button("← Previous", use_container_width=True):
+            if st.button("← Previous", width='stretch'):
                 st.session_state.page = page - 1
                 st.rerun()
     
@@ -862,7 +862,7 @@ def render_main_table(df: pd.DataFrame, total: int, page: int, page_size: int):
     
     with col3:
         if page < total_pages - 1:
-            if st.button("Next →", use_container_width=True):
+            if st.button("Next →", width='stretch'):
                 st.session_state.page = page + 1
                 st.rerun()
     
@@ -1108,7 +1108,7 @@ def render_export_section(where_clause: str, params: List[Any], total: int):
     with col1:
         st.markdown("#### CSV Format")
         st.caption("Standard CSV file for spreadsheets")
-        if st.button("Generate CSV", key="csv_btn", use_container_width=True):
+        if st.button("Generate CSV", key="csv_btn", width='stretch'):
             with st.spinner("Generating CSV..."):
                 csv_data = export_to_csv(where_clause, params, MAX_EXPORT_ROWS)
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1118,7 +1118,7 @@ def render_export_section(where_clause: str, params: List[Any], total: int):
                     data=csv_data,
                     file_name=filename,
                     mime='text/csv',
-                    use_container_width=True
+                    width='stretch'
                 )
                 st.success(f"CSV ready ({len(csv_data):,} bytes)")
     
@@ -1126,7 +1126,7 @@ def render_export_section(where_clause: str, params: List[Any], total: int):
         st.markdown("#### STIX 2.1 Format")
         st.caption("Structured Threat Information eXpression")
         if st.button("Generate STIX", key="stix_btn",
-                     use_container_width=True):
+                     width='stretch'):
             with st.spinner("Generating STIX bundle..."):
                 stix_data = export_to_stix(where_clause, params,
                                            MAX_EXPORT_ROWS)
@@ -1137,14 +1137,523 @@ def render_export_section(where_clause: str, params: List[Any], total: int):
                     data=stix_data,
                     file_name=filename,
                     mime='application/json',
-                    use_container_width=True
+                    width='stretch'
                 )
                 st.success(f"STIX bundle ready ({len(stix_data):,} bytes)")
 
 
 # ============================================================================
+# Email Monitoring Functions
+# ============================================================================
+
+@st.cache_data(ttl=30)
+def get_email_stats() -> Dict[str, Any]:
+    """Get email monitoring statistics."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    stats = {}
+    
+    # Total emails
+    cur.execute("SELECT COUNT(*) FROM emails")
+    stats['total_emails'] = cur.fetchone()[0]
+    
+    # Critical risk emails (score >= 85)
+    cur.execute("SELECT COUNT(*) FROM emails WHERE risk_score >= 85")
+    stats['critical'] = cur.fetchone()[0]
+    
+    # High risk emails (70-84)
+    cur.execute("SELECT COUNT(*) FROM emails WHERE risk_score >= 70 AND risk_score < 85")
+    stats['high'] = cur.fetchone()[0]
+    
+    # Medium risk emails (50-69)
+    cur.execute("SELECT COUNT(*) FROM emails WHERE risk_score >= 50 AND risk_score < 70")
+    stats['medium'] = cur.fetchone()[0]
+    
+    # Low risk emails (0-49)
+    cur.execute("SELECT COUNT(*) FROM emails WHERE risk_score < 50")
+    stats['low'] = cur.fetchone()[0]
+    
+    # Recent emails (last 24h)
+    cur.execute("""
+        SELECT COUNT(*) FROM emails 
+        WHERE fetched_at >= datetime('now', '-1 day')
+    """)
+    stats['recent_24h'] = cur.fetchone()[0]
+    
+    # Average risk score
+    cur.execute("SELECT AVG(risk_score) FROM emails WHERE risk_score > 0")
+    result = cur.fetchone()[0]
+    stats['avg_risk'] = round(result, 1) if result else 0
+    
+    # Total unique URLs in emails
+    cur.execute("SELECT COUNT(DISTINCT url_id) FROM email_urls")
+    stats['unique_urls'] = cur.fetchone()[0]
+    
+    # URLs from threat feeds (not email source)
+    cur.execute("""
+        SELECT COUNT(DISTINCT et.id) 
+        FROM email_urls eu
+        JOIN enriched_threats et ON eu.url_id = et.id
+        WHERE et.source_feed != 'email'
+    """)
+    stats['threat_feed_urls'] = cur.fetchone()[0]
+    
+    cur.close()
+    return stats
+
+
+@st.cache_data(ttl=30)
+def get_emails_data(limit: int = 100, min_risk: int = 0) -> pd.DataFrame:
+    """Get emails with their risk scores and URL counts."""
+    conn = get_db_connection()
+    
+    query = """
+        SELECT 
+            e.id,
+            e.sender,
+            e.subject,
+            e.date,
+            e.risk_score,
+            e.fetched_at,
+            COUNT(eu.url_id) as url_count,
+            SUM(CASE WHEN et.source_feed != 'email' THEN 1 ELSE 0 END) as threat_urls
+        FROM emails e
+        LEFT JOIN email_urls eu ON e.id = eu.email_id
+        LEFT JOIN enriched_threats et ON eu.url_id = et.id
+        WHERE e.risk_score >= ?
+        GROUP BY e.id, e.sender, e.subject, e.date, e.risk_score, e.fetched_at
+        ORDER BY e.risk_score DESC, e.fetched_at DESC
+        LIMIT ?
+    """
+    
+    df = pd.read_sql_query(query, conn, params=(min_risk, limit))
+    return df
+
+
+@st.cache_data(ttl=30)
+def get_email_urls(email_id: str) -> pd.DataFrame:
+    """Get all URLs linked to an email with their details."""
+    conn = get_db_connection()
+    
+    query = """
+        SELECT 
+            et.id,
+            et.url,
+            et.domain,
+            et.risk_score,
+            et.source_feed,
+            et.threat_type,
+            et.target_brand,
+            et.online,
+            et.country,
+            et.asn_name,
+            et.ssl_enabled,
+            et.first_seen
+        FROM email_urls eu
+        JOIN enriched_threats et ON eu.url_id = et.id
+        WHERE eu.email_id = ?
+        ORDER BY et.risk_score DESC, et.first_seen DESC
+    """
+    
+    df = pd.read_sql_query(query, conn, params=(email_id,))
+    return df
+
+
+@st.cache_data(ttl=60)
+def get_risk_distribution() -> pd.DataFrame:
+    """Get risk score distribution for chart."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT 
+            CASE 
+                WHEN risk_score >= 85 THEN 'Critical (85-100)'
+                WHEN risk_score >= 70 THEN 'High (70-84)'
+                WHEN risk_score >= 50 THEN 'Medium (50-69)'
+                ELSE 'Low (0-49)'
+            END as risk_level,
+            COUNT(*) as count
+        FROM emails
+        GROUP BY risk_level
+        ORDER BY 
+            CASE risk_level
+                WHEN 'Critical (85-100)' THEN 1
+                WHEN 'High (70-84)' THEN 2
+                WHEN 'Medium (50-69)' THEN 3
+                ELSE 4
+            END
+    """)
+    
+    df = pd.DataFrame(cur.fetchall(), columns=['risk_level', 'count'])
+    cur.close()
+    return df
+
+
+@st.cache_data(ttl=60)
+def get_emails_timeline() -> pd.DataFrame:
+    """Get emails received over time."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT 
+            DATE(fetched_at) as date,
+            COUNT(*) as total,
+            SUM(CASE WHEN risk_score >= 85 THEN 1 ELSE 0 END) as critical,
+            SUM(CASE WHEN risk_score >= 70 AND risk_score < 85 THEN 1 ELSE 0 END) as high
+        FROM emails
+        WHERE fetched_at >= date('now', '-30 days')
+        GROUP BY DATE(fetched_at)
+        ORDER BY date
+    """)
+    
+    df = pd.DataFrame(cur.fetchall(), columns=['date', 'total', 'critical', 'high'])
+    cur.close()
+    return df
+
+
+# ============================================================================
 # Page Renderers
 # ============================================================================
+
+def render_email_monitoring_page():
+    """Render email monitoring page - PRIMARY PAGE for email threat detection."""
+    st.title("📧 Email Threat Monitoring")
+    st.markdown("**Real-time monitoring and risk assessment of incoming emails**")
+    st.markdown("---")
+    
+    # Get stats
+    stats = get_email_stats()
+    
+    # Top-level KPIs
+    st.markdown("### 📊 Email Security Overview")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(
+            label="Total Emails",
+            value=f"{stats['total_emails']:,}",
+            delta=f"{stats['recent_24h']} in 24h"
+        )
+    
+    with col2:
+        crit_pct = (stats['critical'] / max(stats['total_emails'], 1)) * 100
+        st.metric(
+            label="🚨 Critical Risk",
+            value=f"{stats['critical']:,}",
+            delta=f"{crit_pct:.1f}%",
+            delta_color="inverse"
+        )
+    
+    with col3:
+        high_pct = (stats['high'] / max(stats['total_emails'], 1)) * 100
+        st.metric(
+            label="⚠️ High Risk",
+            value=f"{stats['high']:,}",
+            delta=f"{high_pct:.1f}%",
+            delta_color="inverse"
+        )
+    
+    with col4:
+        st.metric(
+            label="📈 Avg Risk Score",
+            value=f"{stats['avg_risk']:.1f}/100"
+        )
+    
+    with col5:
+        st.metric(
+            label="🔗 Threat Feed Matches",
+            value=f"{stats['threat_feed_urls']:,}",
+            help="URLs found in external threat feeds"
+        )
+    
+    st.markdown("---")
+    
+    # Risk distribution and timeline
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("#### Risk Level Distribution")
+        risk_dist = get_risk_distribution()
+        if not risk_dist.empty:
+            colors = {
+                'Critical (85-100)': '#dc3545',
+                'High (70-84)': '#fd7e14',
+                'Medium (50-69)': '#ffc107',
+                'Low (0-49)': '#28a745'
+            }
+            fig = go.Figure(data=[go.Pie(
+                labels=risk_dist['risk_level'],
+                values=risk_dist['count'],
+                marker=dict(colors=[
+                    colors.get(level, '#6c757d')
+                    for level in risk_dist['risk_level']
+                ]),
+                hole=0.4
+            )])
+            fig.update_traces(
+                textposition='inside',
+                textinfo='percent+label',
+                textfont_size=12
+            )
+            fig.update_layout(height=300, showlegend=False, margin=dict(t=0, b=0))
+            st.plotly_chart(fig, width='stretch')
+        else:
+            st.info("No email data available")
+    
+    with col2:
+        st.markdown("#### Email Timeline (Last 30 Days)")
+        timeline = get_emails_timeline()
+        if not timeline.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=timeline['date'],
+                y=timeline['total'],
+                name='Total Emails',
+                fill='tozeroy',
+                line=dict(color='#007bff', width=2)
+            ))
+            fig.add_trace(go.Scatter(
+                x=timeline['date'],
+                y=timeline['critical'],
+                name='Critical Risk',
+                line=dict(color='#dc3545', width=2, dash='dot')
+            ))
+            fig.add_trace(go.Scatter(
+                x=timeline['date'],
+                y=timeline['high'],
+                name='High Risk',
+                line=dict(color='#fd7e14', width=2, dash='dot')
+            ))
+            fig.update_layout(
+                height=300,
+                xaxis_title="Date",
+                yaxis_title="Count",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(t=40, b=0)
+            )
+            st.plotly_chart(fig, width='stretch')
+        else:
+            st.info("No timeline data available")
+    
+    st.markdown("---")
+    
+    # Filter controls
+    st.markdown("### 🔍 Email List")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        risk_filter = st.select_slider(
+            "Minimum Risk Score",
+            options=[0, 25, 50, 70, 85, 100],
+            value=0,
+            help="Show only emails with risk score >= selected value"
+        )
+    
+    with col2:
+        limit = st.selectbox(
+            "Show Emails",
+            options=[25, 50, 100, 200],
+            index=1
+        )
+    
+    with col3:
+        sort_by = st.selectbox(
+            "Sort By",
+            options=["Risk Score (High→Low)", "Date (Recent→Old)"],
+            index=0
+        )
+    
+    # Get emails data
+    emails_df = get_emails_data(limit=limit, min_risk=risk_filter)
+    
+    if not emails_df.empty:
+        st.caption(f"Showing {len(emails_df)} emails")
+        
+        # Format for display
+        display_df = emails_df.copy()
+        
+        # Add risk level column
+        def get_risk_badge(score):
+            if score >= 85:
+                return f"🚨 CRITICAL ({score})"
+            elif score >= 70:
+                return f"⚠️ HIGH ({score})"
+            elif score >= 50:
+                return f"⚡ MEDIUM ({score})"
+            else:
+                return f"✓ LOW ({score})"
+        
+        display_df['Risk Level'] = display_df['risk_score'].apply(get_risk_badge)
+        
+        # Format dates
+        display_df['fetched_at'] = pd.to_datetime(display_df['fetched_at']).dt.strftime('%Y-%m-%d %H:%M')
+        
+        # Shorten sender/subject
+        display_df['sender'] = display_df['sender'].apply(
+            lambda x: x[:40] + '...' if isinstance(x, str) and len(x) > 40 else x
+        )
+        display_df['subject'] = display_df['subject'].apply(
+            lambda x: x[:50] + '...' if isinstance(x, str) and len(x) > 50 else x
+        )
+        
+        # Rename columns
+        display_df = display_df.rename(columns={
+            'sender': 'From',
+            'subject': 'Subject',
+            'fetched_at': 'Received',
+            'url_count': 'URLs',
+            'threat_urls': 'Threats'
+        })
+        
+        # Display table
+        st.dataframe(
+            display_df[['Risk Level', 'From', 'Subject', 'Received', 'URLs', 'Threats']],
+            width='stretch',
+            hide_index=True,
+            column_config={
+                "Risk Level": st.column_config.TextColumn(width="medium"),
+                "Threats": st.column_config.NumberColumn(
+                    help="Number of URLs from external threat feeds"
+                )
+            }
+        )
+        
+        st.markdown("---")
+        
+        # Email details expander
+        st.markdown("### 📧 Email Details")
+        
+        email_options = [
+            f"{row['id'][:8]}... - {row['subject'][:40]} (Risk: {row['risk_score']})"
+            for _, row in emails_df.iterrows()
+        ]
+        
+        selected_email = st.selectbox(
+            "Select email to view details:",
+            options=[''] + email_options,
+            help="View full details including all URLs and threat information"
+        )
+        
+        if selected_email:
+            email_id = selected_email.split(' - ')[0].replace('...', '')
+            # Find full email ID
+            full_email_id = emails_df[emails_df['id'].str.startswith(email_id)]['id'].iloc[0]
+            email_data = emails_df[emails_df['id'] == full_email_id].iloc[0]
+            
+            with st.expander("📬 Email Information", expanded=True):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.text_input("Email ID", value=email_data['id'], disabled=True, key="email_id_detail")
+                    st.text_input("From", value=email_data['sender'], disabled=True, key="email_sender")
+                    st.text_input("Date", value=email_data['date'], disabled=True, key="email_date")
+                
+                with col2:
+                    risk_score = email_data['risk_score']
+                    if risk_score >= 85:
+                        risk_display = f"🚨 CRITICAL - {risk_score}/100"
+                        risk_color = "#dc3545"
+                    elif risk_score >= 70:
+                        risk_display = f"⚠️ HIGH - {risk_score}/100"
+                        risk_color = "#fd7e14"
+                    elif risk_score >= 50:
+                        risk_display = f"⚡ MEDIUM - {risk_score}/100"
+                        risk_color = "#ffc107"
+                    else:
+                        risk_display = f"✓ LOW - {risk_score}/100"
+                        risk_color = "#28a745"
+                    
+                    st.markdown(f"**Risk Score:** <span style='color:{risk_color};font-size:20px;font-weight:bold'>{risk_display}</span>", unsafe_allow_html=True)
+                    st.metric("Total URLs", value=int(email_data['url_count']))
+                    st.metric("Threat Feed Matches", value=int(email_data['threat_urls']))
+                
+                st.text_area("Subject", value=email_data['subject'], disabled=True, height=60, key="email_subject")
+            
+            # URLs in this email
+            st.markdown("#### 🔗 URLs Found in Email")
+            urls_df = get_email_urls(full_email_id)
+            
+            if not urls_df.empty:
+                st.caption(f"Found {len(urls_df)} URL(s) in this email")
+                
+                # Format URLs for display
+                urls_display = urls_df.copy()
+                
+                # Add risk badge
+                def get_url_risk_badge(row):
+                    score = row['risk_score'] if pd.notna(row['risk_score']) else 0
+                    source = row['source_feed']
+                    
+                    if source != 'email':
+                        return f"🚨 THREAT FEED ({score})"
+                    elif score >= 85:
+                        return f"🚨 CRITICAL ({score})"
+                    elif score >= 70:
+                        return f"⚠️ HIGH ({score})"
+                    elif score >= 50:
+                        return f"⚡ MEDIUM ({score})"
+                    else:
+                        return f"✓ LOW ({score})"
+                
+                urls_display['Risk'] = urls_df.apply(get_url_risk_badge, axis=1)
+                
+                # Shorten URL
+                urls_display['URL'] = urls_display['url'].apply(
+                    lambda x: x[:60] + '...' if isinstance(x, str) and len(x) > 60 else x
+                )
+                
+                # Format online status
+                urls_display['Status'] = urls_display['online'].apply(
+                    lambda x: '🟢 Online' if x == 'yes' else '🔴 Offline' if x == 'no' else '⚪ Unknown'
+                )
+                
+                # Display table
+                st.dataframe(
+                    urls_display[['Risk', 'URL', 'domain', 'source_feed', 'threat_type', 'target_brand', 'Status', 'country']],
+                    width='stretch',
+                    hide_index=True,
+                    column_config={
+                        "URL": st.column_config.TextColumn(width="large"),
+                        "domain": "Domain",
+                        "source_feed": "Source",
+                        "threat_type": "Threat Type",
+                        "target_brand": "Target",
+                        "Status": st.column_config.TextColumn(width="small"),
+                        "country": "Country"
+                    }
+                )
+                
+                # URL details
+                st.markdown("##### 🔍 URL Details")
+                url_detail_options = [
+                    f"{row['url'][:50]}... (Risk: {row['risk_score']})"
+                    for _, row in urls_df.iterrows()
+                ]
+                
+                selected_url = st.selectbox(
+                    "Select URL for full details:",
+                    options=[''] + url_detail_options,
+                    key="url_detail_select"
+                )
+                
+                if selected_url:
+                    url_idx = url_detail_options.index(selected_url)
+                    url_row = urls_df.iloc[url_idx]
+                    url_id = int(url_row['id'])
+                    
+                    # Get full URL details
+                    url_details = get_row_details(url_id)
+                    if url_details:
+                        with st.expander("Full URL Details", expanded=True):
+                            render_detail_view(url_details)
+            else:
+                st.info("No URLs found in this email")
+    else:
+        st.info(f"No emails found with risk score >= {risk_filter}")
+
 
 def render_overview_page():
     """Render the overview dashboard page with key metrics and charts."""
@@ -1177,7 +1686,7 @@ def render_overview_page():
             )
             fig.update_traces(textposition='inside', textinfo='percent+label')
             fig.update_layout(height=350, showlegend=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No data available")
 
@@ -1200,7 +1709,7 @@ def render_overview_page():
             )])
             fig.update_traces(textposition='inside', textinfo='percent+label')
             fig.update_layout(height=350, showlegend=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No data available")
 
@@ -1233,7 +1742,7 @@ def render_overview_page():
                 yaxis_title="Count",
                 xaxis_title=""
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No data available")
 
@@ -1255,7 +1764,7 @@ def render_overview_page():
                 yaxis_title="",
                 yaxis={'categoryorder': 'total ascending'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No data available")
 
@@ -1280,7 +1789,7 @@ def render_overview_page():
             fill='tozeroy',
             line=dict(width=2)
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("No timeline data available")
 
@@ -1314,7 +1823,7 @@ def render_analytics_page():
                 yaxis_title="",
                 yaxis={'categoryorder': 'total ascending'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No country data available")
 
@@ -1350,7 +1859,7 @@ def render_analytics_page():
                 yaxis_title="",
                 yaxis={'categoryorder': 'total ascending'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No ASN data available")
 
@@ -1370,7 +1879,7 @@ def render_analytics_page():
                 yaxis_title="Count",
                 showlegend=False
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No domain age data available")
 
@@ -1511,28 +2020,39 @@ def main():
         return
 
     # Sidebar navigation
-    st.sidebar.title("Navigation")
+    st.sidebar.title("🎯 Navigation")
     page = st.sidebar.radio(
         "Select Page:",
         options=[
-            "Overview",
-            "Analytics",
-            "Data Explorer",
-            "Search"
+            "📧 Email Monitoring",
+            "📊 Threat Overview",
+            "📈 Analytics",
+            "🔍 Data Explorer",
+            "🔎 Search"
         ],
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        index=0
     )
+
+    st.sidebar.markdown("---")
+    
+    # Show refresh button
+    if st.sidebar.button("🔄 Refresh Data", width='stretch'):
+        st.cache_data.clear()
+        st.rerun()
 
     st.sidebar.markdown("---")
 
     # Route to appropriate page
-    if page == "Overview":
+    if page == "📧 Email Monitoring":
+        render_email_monitoring_page()
+    elif page == "📊 Threat Overview":
         render_overview_page()
-    elif page == "Analytics":
+    elif page == "📈 Analytics":
         render_analytics_page()
-    elif page == "Data Explorer":
+    elif page == "🔍 Data Explorer":
         render_data_explorer_page()
-    elif page == "Search":
+    elif page == "🔎 Search":
         render_search_page()
 
     # Footer

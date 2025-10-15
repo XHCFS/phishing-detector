@@ -132,7 +132,7 @@ def authenticate_gmail(args):
 
 
 def fetch_emails(args):
-    """Fetch emails from Gmail."""
+    """Fetch emails from Gmail and optionally enrich them."""
     print("📧 Fetching emails from Gmail...")
     
     cmd_args = ["--fetch"]
@@ -146,6 +146,14 @@ def fetch_emails(args):
         return 1
     
     print("✅ Emails fetched")
+    
+    # Auto-enrich if requested
+    if args.enrich:
+        print("\n🔍 Enriching fetched emails...")
+        enrich_args = argparse.Namespace(email_id=None, credentials=args.credentials)
+        if enrich_emails(enrich_args) != 0:
+            print("⚠️  Email enrichment had issues, but fetch succeeded")
+    
     return 0
 
 
@@ -166,6 +174,106 @@ def enrich_emails(args):
         return 1
     
     print("✅ Email enrichment complete")
+    return 0
+
+
+def bootstrap_emails(args):
+    """Bootstrap: fetch and enrich emails in one shot."""
+    print("🚀 Bootstrapping email processing...")
+    
+    cmd_args = ["--bootstrap", f"--max-fetch={args.count}"]
+    if args.credentials:
+        cmd_args.extend(["--credentials", args.credentials])
+    
+    if run_python_module("app.detector.core", cmd_args) != 0:
+        print("❌ Email bootstrap failed")
+        return 1
+    
+    print("✅ Email bootstrap complete")
+    return 0
+
+
+def demo_mode(args):
+    """Demo mode: Complete setup + continuous email monitoring."""
+    import time
+    
+    print("🎬 Starting DEMO MODE")
+    print("=" * 70)
+    print()
+    
+    # Step 1: Quick setup if needed
+    print("📋 Step 1: Checking setup...")
+    db_path = PROJECT_ROOT / "app" / "database" / "threat_feeds.db"
+    
+    if not db_path.exists() or args.force_setup:
+        print("   Running quick setup...\n")
+        setup_args = argparse.Namespace(
+            skip_detector=False,
+            skip_openphish=args.skip_openphish,
+            skip_phishtank=args.skip_phishtank,
+            skip_urlhaus=args.skip_urlhaus,
+            enrich_limit=500,  # Quick setup
+            fast_enrich=True   # Skip slow enrichments
+        )
+        if full_setup(setup_args) != 0:
+            print("❌ Setup failed")
+            return 1
+    else:
+        print("   ✓ Database exists, skipping setup")
+        print("   (Use --force-setup to re-run setup)\n")
+    
+    # Step 2: Gmail auth check
+    print("📋 Step 2: Checking Gmail authentication...")
+    token_path = PROJECT_ROOT / "app" / "detector" / "token.json"
+    
+    if not token_path.exists():
+        print("   Gmail not authenticated. Starting OAuth flow...\n")
+        auth_args = argparse.Namespace(credentials=args.credentials)
+        if authenticate_gmail(auth_args) != 0:
+            print("❌ Gmail authentication failed")
+            return 1
+    else:
+        print("   ✓ Gmail already authenticated\n")
+    
+    # Step 3: Continuous email monitoring
+    print("📋 Step 3: Starting continuous email monitoring")
+    print(f"   Fetch interval: {args.interval} seconds")
+    print(f"   Emails per fetch: {args.count}")
+    print("   Press Ctrl+C to stop\n")
+    print("=" * 70)
+    print()
+    
+    iteration = 0
+    try:
+        while True:
+            iteration += 1
+            print(f"\n{'='*70}")
+            print(f"📧 Iteration {iteration} - {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"{'='*70}\n")
+            
+            # Fetch and enrich emails
+            bootstrap_args = argparse.Namespace(count=args.count, credentials=args.credentials)
+            if bootstrap_emails(bootstrap_args) != 0:
+                print("⚠️  Email processing failed, will retry next iteration")
+            
+            # Show statistics
+            print("\n📊 Current Statistics:")
+            run_command(f'{VENV_PYTHON} -c "import sqlite3; conn = sqlite3.connect(\'{db_path}\'); cur = conn.cursor(); cur.execute(\'SELECT COUNT(*) FROM emails\'); print(f\'   Total emails: {{cur.fetchone()[0]}}\'); cur.execute(\'SELECT COUNT(*) FROM emails WHERE risk_score >= 85\'); print(f\'   Critical risk: {{cur.fetchone()[0]}}\'); cur.execute(\'SELECT COUNT(*) FROM emails WHERE risk_score >= 70 AND risk_score < 85\'); print(f\'   High risk: {{cur.fetchone()[0]}}\'); conn.close()"')
+            
+            # Wait for next iteration
+            if not args.once:
+                print(f"\n⏱️  Waiting {args.interval} seconds until next fetch...")
+                print(f"   (Press Ctrl+C to stop)")
+                time.sleep(args.interval)
+            else:
+                print("\n✅ Single iteration complete (--once mode)")
+                break
+                
+    except KeyboardInterrupt:
+        print("\n\n⏹️  Demo mode stopped by user")
+        print(f"   Completed {iteration} iterations")
+        return 0
+    
     return 0
 
 
@@ -249,78 +357,153 @@ def full_setup(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Phishing Detector - Centralized runner",
+        description="🔒 Phishing Email Detector - Simple Command Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python run.py setup                    # Full setup (db + fetch + enrich)
-  python run.py setup --fast-enrich      # Quick setup with minimal enrichment
-  python run.py fetch                    # Fetch threat feeds only
-  python run.py enrich --limit 100       # Enrich 100 URLs
-  python run.py auth                     # Authenticate Gmail
-  python run.py emails --count 10        # Fetch 10 recent emails
-  python run.py api                      # Run FastAPI server
-  python run.py dashboard                # Run Streamlit dashboard
-  python run.py api --port 8080          # Run API on custom port
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START (Choose One):
+
+  python run.py demo              → Complete auto-setup + continuous monitoring
+  python run.py demo --once       → Run once (setup + fetch 5 emails)
+  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 EMAIL COMMANDS (Most Common):
+
+  python run.py auth              → Authenticate Gmail (do this first!)
+  python run.py bootstrap         → Fetch + analyze emails (one shot)
+  python run.py emails --enrich   → Fetch + analyze emails (same as bootstrap)
+  
+  python run.py dashboard         → Open web dashboard to view results
+  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️  ADVANCED (Optional):
+
+  Setup:
+    python run.py setup           → Full threat database setup
+    python run.py setup --fast    → Quick setup (skip slow enrichments)
+  
+  Threat Feeds:
+    python run.py fetch           → Download threat feeds
+    python run.py enrich          → Enrich threat data
+  
+  Email Management:
+    python run.py emails          → Just fetch emails (no analysis)
+    python run.py enrich-emails   → Analyze already-fetched emails
+  
+  Server:
+    python run.py api             → Run API server
+  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 TYPICAL WORKFLOW:
+
+  1. python run.py demo --once    (Auto-setup + test with 5 emails)
+  2. python run.py dashboard      (View results in browser)
+  3. python run.py demo            (Start continuous monitoring)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         """
     )
     
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
-    # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Full setup (database + fetch + enrich)")
-    setup_parser.add_argument("--skip-detector", action="store_true", help="Skip detector database setup")
-    setup_parser.add_argument("--skip-openphish", action="store_true", help="Skip OpenPhish feed")
-    setup_parser.add_argument("--skip-phishtank", action="store_true", help="Skip PhishTank feed")
-    setup_parser.add_argument("--skip-urlhaus", action="store_true", help="Skip URLhaus feed")
-    setup_parser.add_argument("--enrich-limit", type=int, default=1000, help="URLs to enrich during setup")
-    setup_parser.add_argument("--fast-enrich", action="store_true", help="Skip slow enrichment steps")
+    # ========================================================================
+    # PRIMARY COMMANDS (Simple, common use)
+    # ========================================================================
     
-    # Database command
-    db_parser = subparsers.add_parser("db", help="Initialize database schemas only")
-    db_parser.add_argument("--skip-detector", action="store_true", help="Skip detector database setup")
+    # Demo mode - The easiest way to get started
+    demo_parser = subparsers.add_parser(
+        "demo", 
+        help="🎬 Auto-setup + email monitoring (EASIEST)",
+        description="Complete auto-setup and continuous email monitoring"
+    )
+    demo_parser.add_argument("--once", action="store_true", help="Run once and exit (no loop)")
+    demo_parser.add_argument("--count", type=int, default=5, help="Emails per fetch (default: 5)")
+    demo_parser.add_argument("--interval", type=int, default=300, help="Seconds between fetches (default: 300)")
+    demo_parser.add_argument("--force-setup", action="store_true", help="Force database re-setup")
+    demo_parser.add_argument("--credentials", help="Path to Gmail credentials.json")
+    demo_parser.add_argument("--skip-openphish", action="store_true", help="[Advanced] Skip feed")
+    demo_parser.add_argument("--skip-phishtank", action="store_true", help="[Advanced] Skip feed")
+    demo_parser.add_argument("--skip-urlhaus", action="store_true", help="[Advanced] Skip feed")
     
-    # Fetch command
-    fetch_parser = subparsers.add_parser("fetch", help="Fetch threat feeds")
-    fetch_parser.add_argument("--skip-openphish", action="store_true", help="Skip OpenPhish feed")
-    fetch_parser.add_argument("--skip-phishtank", action="store_true", help="Skip PhishTank feed")
-    fetch_parser.add_argument("--skip-urlhaus", action="store_true", help="Skip URLhaus feed")
-    
-    # Enrich command
-    enrich_parser = subparsers.add_parser("enrich", help="Enrich threat feed data")
-    enrich_parser.add_argument("--limit", type=int, help="Limit number of URLs to process")
-    enrich_parser.add_argument("--skip-existing", action="store_true", help="Skip already enriched URLs")
-    enrich_parser.add_argument("--source", choices=["openphish", "phishtank", "urlhaus"], help="Process specific source only")
-    enrich_parser.add_argument("--disable-whois", action="store_true", help="Disable WHOIS lookups")
-    enrich_parser.add_argument("--disable-ipwhois", action="store_true", help="Disable IP WHOIS lookups")
-    enrich_parser.add_argument("--disable-page-content", action="store_true", help="Disable page content fetching")
-    enrich_parser.add_argument("--concurrency", type=int, help="Concurrent URL processing")
-    enrich_parser.add_argument("--workers", type=int, help="Worker thread pool size")
-    
-    # Auth command
-    auth_parser = subparsers.add_parser("auth", help="Authenticate with Gmail")
+    # Auth - Gmail authentication
+    auth_parser = subparsers.add_parser(
+        "auth",
+        help="🔐 Authenticate Gmail",
+        description="Complete Gmail OAuth authentication"
+    )
     auth_parser.add_argument("--credentials", help="Path to credentials.json")
     
-    # Emails command
-    emails_parser = subparsers.add_parser("emails", help="Fetch and process emails")
-    emails_parser.add_argument("--count", type=int, default=25, help="Number of emails to fetch")
+    # Bootstrap - Fetch and analyze emails in one shot
+    bootstrap_parser = subparsers.add_parser(
+        "bootstrap",
+        help="📧 Fetch + analyze emails (one-shot)",
+        description="Fetch emails and analyze them for threats"
+    )
+    bootstrap_parser.add_argument("--count", type=int, default=10, help="Number of emails (default: 10)")
+    bootstrap_parser.add_argument("--credentials", help="Path to credentials.json")
+    
+    # Dashboard - View results in web UI
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="📊 Open web dashboard",
+        description="Launch Streamlit dashboard to view email threats"
+    )
+    dashboard_parser.add_argument("--host", default="localhost", help="Host (default: localhost)")
+    dashboard_parser.add_argument("--port", type=int, default=8501, help="Port (default: 8501)")
+    
+    # ========================================================================
+    # SECONDARY COMMANDS (Advanced users)
+    # ========================================================================
+    
+    # Setup
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="⚙️  [Advanced] Full database setup",
+        description="Initialize database and threat feeds"
+    )
+    setup_parser.add_argument("--fast", dest="fast_enrich", action="store_true", help="Quick mode")
+    setup_parser.add_argument("--enrich-limit", type=int, default=1000, help="URLs to enrich")
+    setup_parser.add_argument("--skip-detector", action="store_true", help="Skip email DB")
+    setup_parser.add_argument("--skip-openphish", action="store_true", help="Skip feed")
+    setup_parser.add_argument("--skip-phishtank", action="store_true", help="Skip feed")
+    setup_parser.add_argument("--skip-urlhaus", action="store_true", help="Skip feed")
+    
+    # Emails (fetch only)
+    emails_parser = subparsers.add_parser(
+        "emails",
+        help="📬 [Advanced] Fetch emails",
+        description="Fetch emails from Gmail (use bootstrap instead)"
+    )
+    emails_parser.add_argument("--count", type=int, default=25, help="Number of emails")
+    emails_parser.add_argument("--enrich", action="store_true", help="Also analyze emails")
     emails_parser.add_argument("--credentials", help="Path to credentials.json")
     
-    # Enrich emails command
-    enrich_emails_parser = subparsers.add_parser("enrich-emails", help="Enrich fetched emails")
-    enrich_emails_parser.add_argument("--email-id", help="Specific email ID to enrich")
+    # Less common commands with minimal options
+    subparsers.add_parser("db", help="[Advanced] Create database schema")
+    subparsers.add_parser("fetch", help="[Advanced] Download threat feeds")
+    
+    enrich_parser = subparsers.add_parser("enrich", help="[Advanced] Enrich threat data")
+    enrich_parser.add_argument("--limit", type=int, help="Max URLs to process")
+    enrich_parser.add_argument("--skip-existing", action="store_true", help="Skip already enriched")
+    enrich_parser.add_argument("--source", choices=["openphish", "phishtank", "urlhaus"], help="Specific source")
+    enrich_parser.add_argument("--disable-whois", action="store_true", help="Disable WHOIS")
+    enrich_parser.add_argument("--disable-ipwhois", action="store_true", help="Disable IP WHOIS")
+    enrich_parser.add_argument("--disable-page-content", action="store_true", help="Disable page fetch")
+    enrich_parser.add_argument("--concurrency", type=int, help="Concurrent URLs")
+    enrich_parser.add_argument("--workers", type=int, help="Worker threads")
+    
+    enrich_emails_parser = subparsers.add_parser("enrich-emails", help="[Advanced] Analyze fetched emails")
+    enrich_emails_parser.add_argument("--email-id", help="Specific email ID")
     enrich_emails_parser.add_argument("--credentials", help="Path to credentials.json")
     
-    # API command
-    api_parser = subparsers.add_parser("api", help="Run FastAPI server")
-    api_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
-    api_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
-    api_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-    
-    # Dashboard command
-    dashboard_parser = subparsers.add_parser("dashboard", help="Run Streamlit dashboard")
-    dashboard_parser.add_argument("--host", default="localhost", help="Host to bind to")
-    dashboard_parser.add_argument("--port", type=int, default=8501, help="Port to bind to")
+    api_parser = subparsers.add_parser("api", help="[Advanced] Run API server")
+    api_parser.add_argument("--host", default="0.0.0.0", help="Host")
+    api_parser.add_argument("--port", type=int, default=8000, help="Port")
+    api_parser.add_argument("--reload", action="store_true", help="Auto-reload")
     
     args = parser.parse_args()
     
@@ -338,6 +521,8 @@ Examples:
         "auth": authenticate_gmail,
         "emails": fetch_emails,
         "enrich-emails": enrich_emails,
+        "bootstrap": bootstrap_emails,
+        "demo": demo_mode,
         "api": run_api,
         "dashboard": run_dashboard,
     }

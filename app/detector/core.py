@@ -183,9 +183,13 @@ def save_email_to_db(msg_id: str, sender: str, subject: str, date: str, headers:
         body_plain: Plain text body
         body_html: HTML body
         risk_score: Risk score (0-100), defaults to 0
+    
+    Returns:
+        True if email was newly inserted, False if it already existed
     """
     con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
     cur = con.cursor()
+    inserted = False
     try:
         cur.execute('''
         INSERT INTO emails (id, sender, subject, date, headers_json, body_plain, body_html, risk_score)
@@ -201,11 +205,17 @@ def save_email_to_db(msg_id: str, sender: str, subject: str, date: str, headers:
             risk_score
         ))
         con.commit()
+        inserted = True
     except sqlite3.IntegrityError:
-        # already exists
-        pass
+        # Email already exists
+        inserted = False
+    except Exception as e:
+        print(f'    ✗ Error saving email: {e}')
+        inserted = False
     finally:
         con.close()
+    
+    return inserted
 
 
 def update_email_risk_score(email_id: str, risk_score: int = None):
@@ -373,6 +383,12 @@ def extract_urls_from_text(text: str) -> List[str]:
 
 
 def fetch_and_store_recent_emails(max_results: int = 25, credentials_path: Optional[str] = None):
+    """Fetch recent emails from Gmail and store them in the database.
+    
+    Returns:
+        List of message IDs that were stored
+    """
+    print(f'Fetching up to {max_results} recent emails from Gmail...')
     service = get_gmail_service(credentials_path)
     results = service.users().messages().list(userId='me', maxResults=max_results).execute()
     messages = results.get('messages', [])
@@ -382,26 +398,43 @@ def fetch_and_store_recent_emails(max_results: int = 25, credentials_path: Optio
         return []
 
     stored = []
+    skipped = []
+    
     for msg in messages:
         msg_id = msg['id']
-        msg_data = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
-        payload = msg_data.get('payload', {})
-        headers_list = payload.get('headers', [])
+        print(f'  Processing message {msg_id}...')
+        
+        try:
+            msg_data = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
+            payload = msg_data.get('payload', {})
+            headers_list = payload.get('headers', [])
 
-        headers = {}
-        for h in headers_list:
-            headers[h['name']] = decode_mime(h.get('value', ''))
+            headers = {}
+            for h in headers_list:
+                headers[h['name']] = decode_mime(h.get('value', ''))
 
-        sender = headers.get('From', '(unknown)')
-        subject = headers.get('Subject', '(no subject)')
-        date = headers.get('Date', '(unknown)')
+            sender = headers.get('From', '(unknown)')
+            subject = headers.get('Subject', '(no subject)')
+            date = headers.get('Date', '(unknown)')
 
-        body_plain, body_html = extract_body(payload)
+            body_plain, body_html = extract_body(payload)
 
-        save_email_to_db(msg_id, sender, subject, date, headers, body_plain, body_html, risk_score=0)
-        stored.append(msg_id)
+            print(f'    From: {sender}')
+            print(f'    Subject: {subject[:50]}...')
+            
+            was_inserted = save_email_to_db(msg_id, sender, subject, date, headers, body_plain, body_html, risk_score=0)
+            
+            if was_inserted:
+                stored.append(msg_id)
+                print(f'    ✓ Saved to database (new email)')
+            else:
+                skipped.append(msg_id)
+                print(f'    ⊘ Already in database (skipped)')
+                
+        except Exception as e:
+            print(f'    ✗ Error processing message: {e}')
 
-    print(f'Fetched and stored {len(stored)} messages')
+    print(f'\n✅ Fetched {len(messages)} messages: {len(stored)} new, {len(skipped)} already existed')
     return stored
 
 
@@ -448,10 +481,21 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
     con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
     cur = con.cursor()
     
+    # Check if email has already been enriched (has URL links)
+    cur.execute('SELECT COUNT(*) FROM email_urls WHERE email_id = ?', (email_id,))
+    existing_links = cur.fetchone()[0]
+    
+    if existing_links > 0:
+        print(f'\n⊘ Email {email_id} already enriched ({existing_links} URLs linked)')
+        print(f'   Skipping to prevent duplicate enrichment')
+        cur.close()
+        return 0
+    
     # Get email content
     cur.execute('SELECT body_plain, body_html FROM emails WHERE id = ?', (email_id,))
     row = cur.fetchone()
     if not row:
+        print(f'\n✗ Email {email_id} not found in database')
         con.close()
         return 0
     
@@ -651,11 +695,25 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
     return processed_count
 
 
-def enrich_urls_for_email(email_id: str, max_per_email: int = 50):
+def enrich_urls_for_email(email_id: str, max_per_email: int = 50, force: bool = False):
     """Synchronous wrapper for async email URL enrichment.
     
     This runs the async version in an event loop for backwards compatibility.
+    
+    Args:
+        email_id: Email message ID
+        max_per_email: Maximum URLs to process per email
+        force: If True, re-enrich even if already enriched
     """
+    # If force flag, clear existing email-URL links first
+    if force:
+        con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
+        cur = con.cursor()
+        cur.execute('DELETE FROM email_urls WHERE email_id = ?', (email_id,))
+        con.commit()
+        con.close()
+        print(f'🔄 Force re-enrichment: Cleared existing URL links for {email_id}')
+    
     try:
         # Try to get existing event loop
         loop = asyncio.get_event_loop()
@@ -690,14 +748,33 @@ if __name__ == '__main__':
     def enrich_all_emails_in_db():
         con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
         cur = con.cursor()
-        cur.execute('SELECT id FROM emails')
+        
+        # Get unenriched emails only (unless --force-enrich is used)
+        if args.force_enrich:
+            cur.execute('SELECT id FROM emails')
+            print('🔄 Force re-enrichment mode: processing ALL emails')
+        else:
+            # Only get emails that haven't been enriched yet
+            cur.execute('''
+                SELECT e.id 
+                FROM emails e
+                LEFT JOIN email_urls eu ON e.id = eu.email_id
+                WHERE eu.email_id IS NULL
+            ''')
+            print('Processing only unenriched emails (use --force-enrich to re-process all)')
+        
         rows = [r[0] for r in cur.fetchall()]
         con.close()
+        
+        if not rows:
+            print('No unenriched emails found')
+            return 0
 
+        print(f'Found {len(rows)} emails to enrich')
         total = 0
         for eid in rows:
             try:
-                n = enrich_urls_for_email(eid)
+                n = enrich_urls_for_email(eid, force=args.force_enrich)
                 print(f'Enriched {n} URLs for {eid}')
                 total += n
             except Exception as e:
@@ -709,6 +786,7 @@ if __name__ == '__main__':
     parser.add_argument('--fetch', type=int, nargs='?', const=25, help='Fetch recent emails (count)')
     parser.add_argument('--enrich-email', type=str, help='Enrich URLs for a specific email id')
     parser.add_argument('--enrich-all', action='store_true', help='Enrich URLs for all emails in the local DB')
+    parser.add_argument('--force-enrich', action='store_true', help='Force re-enrichment even if email already enriched')
     parser.add_argument('--credentials', type=str, help='Path to credentials.json (OAuth client)')
     parser.add_argument('--bootstrap', action='store_true', help='One-shot: setup DB, fetch emails, then enrich them')
     parser.add_argument('--max-fetch', type=int, default=50, help='Max messages to fetch during bootstrap')
@@ -766,8 +844,9 @@ if __name__ == '__main__':
             stored = []
 
         enriched_count = 0
-        # If fetch returned ids, enrich those; otherwise enrich all emails in DB
+        # Only enrich newly fetched emails (don't re-enrich all if nothing new)
         if stored:
+            print(f'\nEnriching {len(stored)} newly fetched emails...')
             for eid in stored:
                 try:
                     n = enrich_urls_for_email(eid)
@@ -776,10 +855,11 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f'Error enriching {eid}: {e}')
         else:
-            enriched_count = enrich_all_emails_in_db()
+            print('\n⊘ No new emails to enrich (all were already in database)')
+            print('   Tip: To re-enrich existing emails, use: --enrich-all')
 
         duration = time.time() - start
-        print(f'Bootstrap finished: enriched {enriched_count} URL(s) in {duration:.1f}s')
+        print(f'\nBootstrap finished: enriched {enriched_count} URL(s) in {duration:.1f}s')
 
     if args.fetch is not None:
         setup_database()
