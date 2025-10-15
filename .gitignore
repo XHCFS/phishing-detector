@@ -211,3 +211,13 @@ __marimo__/
 
 # Demo mode trigger file
 .demo_refresh_trigger
+
+# LaTeX build files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz

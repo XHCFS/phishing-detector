@@ -238,11 +238,11 @@ python run.py demo --count 50
 
 ## 🔗 Related Documentation
 
-- **[← Quick Start Guide](QUICK_START.md)** - Essential commands
-- **[← Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md)** - Dashboard features
-- **[← Main README](README.md)** - Project overview
-- **[→ Detector Documentation](app/detector/README.md)** - Email analysis details
-- **[→ Complete Documentation Index](docs/README.md)** - All documentation
+- **[← Quick Start Guide](../../QUICK_START.md)** - Essential commands
+- **[← Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md)** - Dashboard features  
+- **[← Main README](../../README.md)** - Project overview
+- **[→ Detector Documentation](../../app/detector/README.md)** - Email analysis details
+- **[→ Complete Documentation Index](../README.md)** - All documentation
 
 ---
 

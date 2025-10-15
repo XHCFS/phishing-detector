@@ -175,7 +175,7 @@ These are advanced/internal commands - **you probably don't need them**:
 1. **Always start with**: `python run.py demo --once`
 2. **View results in**: `python run.py dashboard`
 3. **For production**: `python run.py demo` (continuous)
-4. **To debug**: `python debug_emails.py --check`
+4. **To debug**: `python utils/debug_emails.py --check`
 
 That's it! Just 4 commands for everything. 🎯
 
@@ -184,9 +184,10 @@ That's it! Just 4 commands for everything. 🎯
 ## 🔗 Related Documentation
 
 - **[← Back to Main README](README.md)** - Project overview
-- **[→ Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md)** - Dashboard features
-- **[→ Demo Mode Guide](DEMO_MODE_GUIDE.md)** - Continuous monitoring details
+- **[→ Email Dashboard Guide](docs/guides/EMAIL_DASHBOARD_GUIDE.md)** - Dashboard features
+- **[→ Demo Mode Guide](docs/guides/DEMO_MODE_GUIDE.md)** - Continuous monitoring details
 - **[→ Complete Documentation Index](docs/README.md)** - All documentation
+- **[🔧 Debug Tools](utils/)** - Diagnostic utilities
 
 ---
 

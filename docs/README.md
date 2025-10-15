@@ -19,11 +19,11 @@
 
 | Document | Purpose |
 |----------|---------|
-| **[Email Dashboard Guide](../EMAIL_DASHBOARD_GUIDE.md)** | Using the Email Monitoring interface |
-| **[Demo Mode Guide](../DEMO_MODE_GUIDE.md)** | Automated setup and continuous monitoring |
+| **[Email Dashboard Guide](guides/EMAIL_DASHBOARD_GUIDE.md)** | Using the Email Monitoring interface |
+| **[Demo Mode Guide](guides/DEMO_MODE_GUIDE.md)** | Automated setup and continuous monitoring |
 | **[Detector Module](../app/detector/README.md)** | Email analysis technical details |
 
-**For daily use:** [EMAIL_DASHBOARD_GUIDE.md](../EMAIL_DASHBOARD_GUIDE.md)
+**For daily use:** [EMAIL_DASHBOARD_GUIDE.md](guides/EMAIL_DASHBOARD_GUIDE.md)
 
 ---
 
@@ -88,13 +88,13 @@
 → [Database README](../app/database/README.md)
 
 **Monitor emails for threats**
-→ [Email Dashboard Guide](../EMAIL_DASHBOARD_GUIDE.md)
+→ [Email Dashboard Guide](guides/EMAIL_DASHBOARD_GUIDE.md)
 
 **Run continuous monitoring**
-→ [Demo Mode Guide](../DEMO_MODE_GUIDE.md)
+→ [Demo Mode Guide](guides/DEMO_MODE_GUIDE.md)
 
 **Understand the system architecture**
-→ [Technical Report](../TECHNICAL_REPORT.md)
+→ [Technical Report](technical/TECHNICAL_REPORT.md)
 
 **Customize the dashboard**
 → [Dashboard Technical Guide](../app/dashboard/Documentation/DASHBOARD_GUIDE.md)
@@ -197,5 +197,5 @@ See **[DOCUMENTATION_MAP.md](../DOCUMENTATION_MAP.md)** for the complete navigat
 
 ---
 
-**Navigate:** [↑ Main README](../README.md) | [→ Quick Start](../QUICK_START.md) | [→ Email Monitoring](../EMAIL_DASHBOARD_GUIDE.md) | [→ Doc Map](../DOCUMENTATION_MAP.md)
+**Navigate:** [↑ Main README](../README.md) | [→ Quick Start](../QUICK_START.md) | [→ Email Monitoring](guides/EMAIL_DASHBOARD_GUIDE.md) | [→ Doc Map](guides/DOCUMENTATION_MAP.md)
 

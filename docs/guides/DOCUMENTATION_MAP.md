@@ -168,5 +168,5 @@ Utilities:
 
 ---
 
-**Navigate:** [→ Documentation Index](docs/README.md) | [→ Main README](README.md) | [→ Quick Start](QUICK_START.md)
+**Navigate:** [→ Documentation Index](../README.md) | [→ Main README](../../README.md) | [→ Quick Start](../../QUICK_START.md)
 

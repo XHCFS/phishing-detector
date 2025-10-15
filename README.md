@@ -16,7 +16,7 @@ python run.py demo --once
 # Dashboard auto-opens at http://localhost:8501
 ```
 
-**That's it!** See [QUICK_START.md](QUICK_START.md) for details.
+**That's it!** See **[QUICK_START.md](QUICK_START.md)** for details.
 
 ---
 
@@ -103,7 +103,7 @@ Access at **http://localhost:8501** (auto-opens in demo mode)
 - 🔗 URL analysis (threat feed matches highlighted)
 - 🔍 Detailed drill-down for each email/URL
 
-See [Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md) for full feature list.
+See [Email Dashboard Guide](docs/guides/EMAIL_DASHBOARD_GUIDE.md) for full feature list.
 
 **Other Tabs:**
 - Threat Overview - High-level threat statistics
@@ -148,12 +148,20 @@ phishing-detector/
 ├── 🎬 start.py                     ← Interactive menu
 ├── ⚙️  run.py                       ← Command runner
 │
-├── 📧 Email Monitoring
-│   ├── EMAIL_DASHBOARD_GUIDE.md    ← Dashboard usage
-│   └── DEMO_MODE_GUIDE.md          ← Continuous monitoring
-│
 ├── 📚 docs/
-│   └── README.md                   ← Documentation index
+│   ├── README.md                   ← Documentation index
+│   ├── guides/                     ← User guides
+│   │   ├── EMAIL_DASHBOARD_GUIDE.md
+│   │   ├── DEMO_MODE_GUIDE.md
+│   │   ├── DOCUMENTATION_MAP.md
+│   │   └── COMMIT_GUIDE.md
+│   └── technical/                  ← Technical docs
+│       └── TECHNICAL_REPORT.md
+│
+├── 🔧 utils/                        ← Utility scripts
+│   ├── check_duplicates.py
+│   ├── check_url_matching.py
+│   └── debug_emails.py
 │
 └── app/                            ← Source code
     ├── database/                   ← Threat intelligence
@@ -177,11 +185,11 @@ phishing-detector/
 
 **👤 End User** (just want to use it):
 - Start: [QUICK_START.md](QUICK_START.md)
-- Dashboard: [EMAIL_DASHBOARD_GUIDE.md](EMAIL_DASHBOARD_GUIDE.md)
-- Demo Mode: [DEMO_MODE_GUIDE.md](DEMO_MODE_GUIDE.md)
+- Dashboard: [EMAIL_DASHBOARD_GUIDE.md](docs/guides/EMAIL_DASHBOARD_GUIDE.md)
+- Demo Mode: [DEMO_MODE_GUIDE.md](docs/guides/DEMO_MODE_GUIDE.md)
 
 **👨‍💻 Developer** (want to understand/modify):
-- Overview: [Technical Report](TECHNICAL_REPORT.md)
+- Overview: [Technical Report](docs/technical/TECHNICAL_REPORT.md)
 - Database: [app/database/README.md](app/database/README.md)
 - Detector: [app/detector/README.md](app/detector/README.md)
 - Dashboard: [app/dashboard/README.md](app/dashboard/README.md)
@@ -195,10 +203,10 @@ phishing-detector/
 
 | Topic | Quick Start | Technical Details |
 |-------|-------------|-------------------|
-| **Email Monitoring** | [EMAIL_DASHBOARD_GUIDE.md](EMAIL_DASHBOARD_GUIDE.md) | [DETECTOR_GUIDE.md](app/detector/Documentation/DETECTOR_GUIDE.md) |
+| **Email Monitoring** | [EMAIL_DASHBOARD_GUIDE.md](docs/guides/EMAIL_DASHBOARD_GUIDE.md) | [DETECTOR_GUIDE.md](app/detector/Documentation/DETECTOR_GUIDE.md) |
 | **Database** | [app/database/README.md](app/database/README.md) | [DATABASE_GUIDE.md](app/database/Documentation%20&%20Sources%20Research/DATABASE_GUIDE.md) |
 | **Dashboard** | [app/dashboard/README.md](app/dashboard/README.md) | [DASHBOARD_GUIDE.md](app/dashboard/Documentation/DASHBOARD_GUIDE.md) |
-| **Overall System** | [QUICK_START.md](QUICK_START.md) | [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md) |
+| **Overall System** | [QUICK_START.md](QUICK_START.md) | [TECHNICAL_REPORT.md](docs/technical/TECHNICAL_REPORT.md) |
 
 ---
 
@@ -208,10 +216,10 @@ phishing-detector/
 
 | Issue | Solution |
 |-------|----------|
-| No emails showing | Run `python debug_emails.py --check` |
-| URL not matching threat feed | Run `python check_url_matching.py <URL>` |
+| No emails showing | Run `python utils/debug_emails.py --check` |
+| URL not matching threat feed | Run `python utils/check_url_matching.py <URL>` |
 | Duplicate enrichment | Fixed - automatic detection now |
-| Database errors | Run `python check_duplicates.py` |
+| Database errors | Run `python utils/check_duplicates.py` |
 
 **Detailed troubleshooting:** See module READMEs or run `python start.py` → option 5 (Help)
 
@@ -362,12 +370,12 @@ If you use this project in research, please cite:
 
 - 📚 [Complete Documentation Index](docs/README.md)
 - ⚡ [Quick Start Guide](QUICK_START.md)
-- 📧 [Email Monitoring Guide](EMAIL_DASHBOARD_GUIDE.md)
-- 🎬 [Demo Mode Guide](DEMO_MODE_GUIDE.md)
+- 📧 [Email Monitoring Guide](docs/guides/EMAIL_DASHBOARD_GUIDE.md)
+- 🎬 [Demo Mode Guide](docs/guides/DEMO_MODE_GUIDE.md)
 - 🗄️ [Database Documentation](app/database/README.md)
 - 📊 [Dashboard Documentation](app/dashboard/README.md)
 - 🔍 [Detector Documentation](app/detector/README.md)
-- 📖 [Technical Report](TECHNICAL_REPORT.md)
+- 📖 [Technical Report](docs/technical/TECHNICAL_REPORT.md)
 
 ---
 
