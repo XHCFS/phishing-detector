@@ -45,10 +45,34 @@ python run.py demo --once
 
 ## 📋 Requirements
 
-- **Python 3.11+**
+- **Python 3.11+** or **Docker**
 - **Gmail account** (for email monitoring)
 - **2 GB disk space** (for threat database)
 - **Internet connection** (for threat feeds)
+
+---
+
+## 🐳 Docker Quick Start
+
+```bash
+# Build and run (databases saved to host)
+docker build -t python_zinad .
+docker run -it --rm \
+  -v $(pwd)/app/database:/app/app/database \
+  -p 8501:8501 \
+  python_zinad bash
+
+# Inside container:
+python3 run.py setup --fast
+python3 run.py dashboard --host 0.0.0.0
+
+# Or use the helper script:
+./docker_helper.fish build
+./docker_helper.fish setup
+./docker_helper.fish dashboard
+```
+
+See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for more details.
 
 ---
 

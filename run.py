@@ -6,15 +6,27 @@ Manages setup, data fetching, enrichment, and service launching.
 import sys
 import subprocess
 import argparse
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
 VENV_DIR = PROJECT_ROOT / ".venv"
 VENV_PYTHON = VENV_DIR / "bin" / "python"
 
+# Check if running in Docker (no venv needed)
+IN_DOCKER = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
+
+if IN_DOCKER:
+    # Use system Python in Docker
+    VENV_PYTHON = Path(sys.executable)
+
 
 def check_venv():
-    """Check if virtual environment exists."""
+    """Check if virtual environment exists (skip in Docker)."""
+    if IN_DOCKER:
+        # In Docker, we use system Python - no venv needed
+        return
+    
     if not VENV_DIR.exists():
         print("❌ Virtual environment not found.")
         print("   Run: python3 -m venv .venv")
