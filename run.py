@@ -194,8 +194,11 @@ def bootstrap_emails(args):
 
 
 def demo_mode(args):
-    """Demo mode: Complete setup + continuous email monitoring."""
+    """Demo mode: Complete setup + continuous email monitoring + auto-dashboard."""
     import time
+    import multiprocessing
+    import signal
+    import os
     
     print("🎬 Starting DEMO MODE")
     print("=" * 70)
@@ -235,10 +238,51 @@ def demo_mode(args):
     else:
         print("   ✓ Gmail already authenticated\n")
     
-    # Step 3: Continuous email monitoring
-    print("📋 Step 3: Starting continuous email monitoring")
+    # Step 3: Start dashboard in background (if not --no-dashboard)
+    dashboard_process = None
+    if not args.no_dashboard:
+        print("📋 Step 3: Starting dashboard...")
+        
+        # Create trigger file for dashboard auto-refresh
+        trigger_file = PROJECT_ROOT / ".demo_refresh_trigger"
+        trigger_file.write_text(str(time.time()))
+        
+        print(f"   Dashboard URL: http://localhost:{args.dashboard_port}")
+        print("   Auto-refresh: Every 10 seconds + after each email fetch\n")
+        
+        # Start dashboard in background
+        env = os.environ.copy()
+        env['DEMO_MODE'] = '1'
+        env['DEMO_TRIGGER_FILE'] = str(trigger_file)
+        
+        dashboard_process = subprocess.Popen(
+            [str(VENV_PYTHON), "-m", "streamlit", "run",
+             "app/dashboard/frontend.py",
+             "--server.port", str(args.dashboard_port),
+             "--server.address", "localhost",
+             "--server.headless", "true",
+             "--browser.gatherUsageStats", "false"],
+            cwd=PROJECT_ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        # Wait for dashboard to start
+        print("   Waiting for dashboard to start...")
+        time.sleep(3)
+        print("   ✓ Dashboard started in background\n")
+    else:
+        print("📋 Step 3: Dashboard disabled (--no-dashboard flag)\n")
+        trigger_file = None
+    
+    # Step 4: Continuous email monitoring
+    step_num = 4 if not args.no_dashboard else 3
+    print(f"📋 Step {step_num}: Starting continuous email monitoring")
     print(f"   Fetch interval: {args.interval} seconds")
     print(f"   Emails per fetch: {args.count}")
+    if dashboard_process:
+        print(f"   Dashboard: http://localhost:{args.dashboard_port}")
     print("   Press Ctrl+C to stop\n")
     print("=" * 70)
     print()
@@ -256,6 +300,11 @@ def demo_mode(args):
             if bootstrap_emails(bootstrap_args) != 0:
                 print("⚠️  Email processing failed, will retry next iteration")
             
+            # Update trigger file for dashboard refresh
+            if trigger_file:
+                trigger_file.write_text(str(time.time()))
+                print("\n🔄 Dashboard auto-refresh triggered")
+            
             # Show statistics
             print("\n📊 Current Statistics:")
             run_command(f'{VENV_PYTHON} -c "import sqlite3; conn = sqlite3.connect(\'{db_path}\'); cur = conn.cursor(); cur.execute(\'SELECT COUNT(*) FROM emails\'); print(f\'   Total emails: {{cur.fetchone()[0]}}\'); cur.execute(\'SELECT COUNT(*) FROM emails WHERE risk_score >= 85\'); print(f\'   Critical risk: {{cur.fetchone()[0]}}\'); cur.execute(\'SELECT COUNT(*) FROM emails WHERE risk_score >= 70 AND risk_score < 85\'); print(f\'   High risk: {{cur.fetchone()[0]}}\'); conn.close()"')
@@ -263,15 +312,35 @@ def demo_mode(args):
             # Wait for next iteration
             if not args.once:
                 print(f"\n⏱️  Waiting {args.interval} seconds until next fetch...")
+                if dashboard_process:
+                    print(f"   Dashboard running at: http://localhost:{args.dashboard_port}")
                 print(f"   (Press Ctrl+C to stop)")
                 time.sleep(args.interval)
             else:
                 print("\n✅ Single iteration complete (--once mode)")
+                if dashboard_process:
+                    print(f"\n📊 Dashboard still running at: http://localhost:{args.dashboard_port}")
+                    print("   Press Ctrl+C to stop dashboard...")
+                    dashboard_process.wait()
                 break
                 
     except KeyboardInterrupt:
         print("\n\n⏹️  Demo mode stopped by user")
         print(f"   Completed {iteration} iterations")
+        
+        # Stop dashboard
+        if dashboard_process:
+            print("   Stopping dashboard...")
+            dashboard_process.terminate()
+            try:
+                dashboard_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                dashboard_process.kill()
+        
+        # Clean up trigger file
+        if trigger_file and trigger_file.exists():
+            trigger_file.unlink()
+        
         return 0
     
     return 0
@@ -364,8 +433,8 @@ def main():
 
 🚀 QUICK START (Choose One):
 
-  python run.py demo              → Complete auto-setup + continuous monitoring
-  python run.py demo --once       → Run once (setup + fetch 5 emails)
+  python run.py demo              → Auto-everything + dashboard (continuous)
+  python run.py demo --once       → Test once (dashboard stays open)
   
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -423,6 +492,8 @@ def main():
     demo_parser.add_argument("--once", action="store_true", help="Run once and exit (no loop)")
     demo_parser.add_argument("--count", type=int, default=5, help="Emails per fetch (default: 5)")
     demo_parser.add_argument("--interval", type=int, default=300, help="Seconds between fetches (default: 300)")
+    demo_parser.add_argument("--no-dashboard", action="store_true", help="Don't auto-launch dashboard")
+    demo_parser.add_argument("--dashboard-port", type=int, default=8501, help="Dashboard port (default: 8501)")
     demo_parser.add_argument("--force-setup", action="store_true", help="Force database re-setup")
     demo_parser.add_argument("--credentials", help="Path to Gmail credentials.json")
     demo_parser.add_argument("--skip-openphish", action="store_true", help="[Advanced] Skip feed")

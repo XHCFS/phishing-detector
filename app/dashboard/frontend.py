@@ -15,6 +15,7 @@ Features:
 import sqlite3
 import streamlit as st
 import pandas as pd
+import os
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Tuple, Optional, Any
@@ -37,6 +38,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Check if running in demo mode
+DEMO_MODE = os.environ.get('DEMO_MODE') == '1'
+DEMO_TRIGGER_FILE = os.environ.get('DEMO_TRIGGER_FILE')
+
+# Auto-refresh configuration
+if DEMO_MODE:
+    # In demo mode, auto-refresh every 10 seconds
+    AUTO_REFRESH_INTERVAL = 10
+else:
+    # Normal mode, no auto-refresh
+    AUTO_REFRESH_INTERVAL = None
 
 
 # ============================================================================
@@ -2006,6 +2019,36 @@ def render_search_page():
 
 def main():
     """Main application entry point with page navigation."""
+    
+    # Auto-refresh in demo mode
+    if AUTO_REFRESH_INTERVAL:
+        import time
+        
+        # Display demo mode banner
+        st.sidebar.success("🎬 Demo Mode Active")
+        st.sidebar.caption(f"Auto-refresh: {AUTO_REFRESH_INTERVAL}s")
+        
+        # Check trigger file for manual refresh
+        if DEMO_TRIGGER_FILE and Path(DEMO_TRIGGER_FILE).exists():
+            try:
+                last_update = float(Path(DEMO_TRIGGER_FILE).read_text())
+                if 'last_trigger_check' not in st.session_state:
+                    st.session_state.last_trigger_check = 0
+                
+                # If trigger file was updated, force refresh
+                if last_update > st.session_state.last_trigger_check:
+                    st.session_state.last_trigger_check = last_update
+                    st.cache_data.clear()
+            except:
+                pass
+        
+        # Auto-refresh timer
+        st.sidebar.markdown("---")
+        placeholder = st.sidebar.empty()
+        
+        # Use Streamlit's native auto-rerun
+        time.sleep(AUTO_REFRESH_INTERVAL)
+        st.rerun()
 
     # Check database exists
     if not DB_PATH.exists():

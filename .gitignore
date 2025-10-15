@@ -208,3 +208,6 @@ __marimo__/
 
 # Database
 *.db
+
+# Demo mode trigger file
+.demo_refresh_trigger

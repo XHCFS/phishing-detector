@@ -356,3 +356,17 @@ After setting up email monitoring:
 
 The Email Monitoring tab gives you **complete visibility** into email threats with detailed risk assessment and URL analysis! 🎯
 
+---
+
+## 🔗 Related Documentation
+
+- **[← Quick Start Guide](QUICK_START.md)** - Get started in 2 minutes
+- **[← Main README](README.md)** - Project overview
+- **[→ Demo Mode Guide](DEMO_MODE_GUIDE.md)** - Automated monitoring
+- **[→ Dashboard Technical Guide](app/dashboard/Documentation/DASHBOARD_GUIDE.md)** - Advanced dashboard features
+- **[→ Complete Documentation Index](docs/README.md)** - All documentation
+
+---
+
+**Next:** [Run demo mode](DEMO_MODE_GUIDE.md) for continuous email monitoring! 🎬
+

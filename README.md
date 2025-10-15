@@ -1,238 +1,219 @@
-# phishing-detector
-This is a program that detects, and groups phishing emails using threat intelligence from multiple public feeds.
+# 🔒 Phishing Email Detector
 
-## Features
+**Automated email threat detection using real-time threat intelligence and risk scoring.**
 
-- **Threat Intelligence Database** - Collects data from OpenPhish, PhishTank, and URLhaus
-- **Enrichment Pipeline** - Adds GeoIP, WHOIS, SSL, and network information
-- **Detection & Analysis** - Identifies phishing patterns and threats
-- **Dashboard** - Visual interface for monitoring threats
+> 📚 **[Complete Documentation Index →](docs/README.md)**
 
 ---
 
-# Setup Guide
-
-## 1. Requirements
-- Python 3.11 or newer  
-- Bash shell (Linux, macOS, or WSL on Windows)
-- Internet connection (for downloading threat feeds)
-
----
-
-## 2. Quick Installation
-
-Clone the repository and enter the folder:
+## ⚡ Quick Start (2 Minutes)
 
 ```bash
+# 1. One command to rule them all
+python run.py demo --once
+
+# 2. View results
+# Dashboard auto-opens at http://localhost:8501
+```
+
+**That's it!** See [QUICK_START.md](QUICK_START.md) for details.
+
+---
+
+## ✨ Key Features
+
+- **📧 Email Monitoring** - Real-time Gmail analysis with risk scoring (0-100)
+- **🎯 Threat Detection** - Matches against 50,000+ known phishing URLs
+- **🚀 Async Enrichment** - 5-10x faster URL analysis with parallel processing
+- **📊 Live Dashboard** - Interactive web interface with auto-refresh
+- **🔍 Smart Scoring** - Multi-factor risk analysis (liveness, domain age, TLD, keywords)
+- **🎬 Demo Mode** - One-command setup with continuous monitoring
+
+---
+
+## 🎯 What This Does
+
+1. **Fetches your Gmail** → Extracts URLs from emails
+2. **Checks threat feeds** → PhishTank, URLhaus, OpenPhish
+3. **Enriches URLs** → WHOIS, GeoIP, SSL, network data
+4. **Calculates risk** → 0-100 score based on 5 factors
+5. **Shows dashboard** → Visual interface with risk breakdown
+
+**Result:** Know immediately if an email contains known phishing URLs or suspicious links.
+
+---
+
+## 📋 Requirements
+
+- **Python 3.11+**
+- **Gmail account** (for email monitoring)
+- **2 GB disk space** (for threat database)
+- **Internet connection** (for threat feeds)
+
+---
+
+## 🚀 Installation
+
+```bash
+# Clone repository
 git clone <repository-url>
 cd phishing-detector
+
+# Auto-setup (does everything)
+python run.py demo --once
 ```
 
-Run the automated setup:
-
+**Manual setup:**
 ```bash
-# Using the centralized runner (recommended)
-python run.py setup
-
-# Or using shell scripts
-./setup.sh          # Bash
-./setup.fish        # Fish shell
+python run.py setup    # Create database + download threats
+python run.py auth     # Authenticate Gmail
 ```
 
-Start the application:
-
-```bash
-# Using the centralized runner (recommended)
-python run.py api
-
-# Or using shell scripts
-./run.sh            # Bash
-./run.fish          # Fish shell
-```
-
-The setup will:
-- Create a Python virtual environment
-- Install all dependencies
-- Initialize the threat feeds database
-- Populate with initial threat data
+See [QUICK_START.md](QUICK_START.md) for step-by-step guide.
 
 ---
 
-## 3. Database Setup
+## 📖 Main Commands
 
-The threat intelligence database is automatically initialized by `setup.sh`. For manual setup or advanced configuration, see:
-
-**[Database Setup Guide](app/database/README.md)** - Complete database documentation
-
-**Quick Database Commands:**
 ```bash
-# Create and populate raw threat database
-python -m app.database.rawdb
-python -m app.database.grabrawdata
-
-# Create enriched database
-python -m app.database.db
-
-# Run enrichment (test with 10 URLs)
-python -m app.database.enrich --limit 10
+python run.py demo              # Auto-everything + continuous monitoring
+python run.py demo --once       # Test once (recommended first run)
+python run.py auth              # Authenticate Gmail
+python run.py bootstrap         # Analyze emails (one-shot)
+python run.py dashboard         # Open web interface
 ```
+
+**Or use interactive menu:**
+```bash
+python start.py
+```
+
+Full command reference: `python run.py --help`
 
 ---
 
-## 4. Configuration (Optional)
+## 📊 Dashboard Features
 
-### API Keys
+Access at **http://localhost:8501** (auto-opens in demo mode)
 
-For enhanced functionality, create a `.env` file in the project root:
+**Primary Tab - Email Monitoring:**
+- 🚨 Critical/High/Medium/Low risk counts
+- 📈 Risk distribution and timeline charts
+- 📧 Email list with risk scores
+- 🔗 URL analysis (threat feed matches highlighted)
+- 🔍 Detailed drill-down for each email/URL
+
+See [Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md) for full feature list.
+
+**Other Tabs:**
+- Threat Overview - High-level threat statistics
+- Analytics - Deep-dive charts and geographic maps
+- Data Explorer - Browse 50,000+ threats with advanced filters
+- Search - Quick URL/domain/IP lookup
+
+---
+
+## 🔧 Configuration (Optional)
+
+### API Keys for Enhanced Features
+
+Create `.env` file in project root:
 
 ```bash
-# Optional - for higher PhishTank rate limits
+# Higher PhishTank rate limits (optional)
 PHISHTANK_API_KEY=your_key_here
 
-# Required for URLhaus malware data
+# URLhaus malware data (recommended)
 URLHAUS_API_KEY=your_key_here
 ```
 
-**Get API Keys:**
-- PhishTank: https://phishtank.org/api_register.php
-- URLhaus: https://auth.abuse.ch/
+**Get keys:** [PhishTank](https://phishtank.org/api_register.php) | [URLhaus](https://auth.abuse.ch/)
+
+### Gmail Credentials
+
+1. Create OAuth credentials at [Google Cloud Console](https://console.cloud.google.com)
+2. Save as `app/detector/credentials.json`
+3. Run: `python run.py auth`
+
+See [Detector README](app/detector/README.md) for detailed Gmail setup.
 
 ---
 
-## 5. Usage
-
-### Start the Application
-```bash
-# Centralized runner (recommended)
-python run.py api              # FastAPI server
-python run.py dashboard        # Streamlit dashboard
-
-# Shell scripts
-./run.sh                       # FastAPI (Bash)
-./run.fish                     # FastAPI (Fish)
-./run_dashboard.sh             # Dashboard (Bash)
-./run_dashboard.fish           # Dashboard (Fish)
-```
-
-Access the API at: http://localhost:8000  
-Access the dashboard at: http://localhost:8501
-
-### Update Threat Feeds
-```bash
-# Centralized runner (recommended)
-python run.py fetch                                    # Update raw threat feeds
-python run.py enrich --limit 1000 --skip-existing     # Enrich new URLs
-
-# Direct module calls
-python -m app.database.grabrawdata
-python -m app.database.enrich --limit 1000 --skip-existing
-```
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 phishing-detector/
-├── app/
-│   ├── database/           # Threat intelligence database system
-│   │   ├── README.md       # Database setup guide
-│   │   ├── rawdb.py        # Raw database schema
-│   │   ├── grabrawdata.py  # Fetch threat feeds
-│   │   ├── db.py           # Enriched database schema
-│   │   ├── enrich.py       # Enrichment pipeline
-│   │   └── Documentation & Sources Research/
-│   │       ├── DATABASE_GUIDE.md  # Complete technical docs
-│   │       └── Data Sources.md    # Threat feed details
-│   ├── detector/           # Phishing detection logic
-│   └── dashboard/          # Web interface
-├── run.py                  # Centralized runner (recommended)
-├── commands.py             # Command reference
-├── setup.sh / setup.fish   # Setup scripts
-├── run.sh / run.fish       # Start API scripts
-├── run_dashboard.sh / run_dashboard.fish  # Start dashboard scripts
-└── requirements.txt        # Python dependencies
+├── 📄 README.md (this file)        ← Project overview
+├── 📄 QUICK_START.md               ← 4 essential commands
+├── 🎬 start.py                     ← Interactive menu
+├── ⚙️  run.py                       ← Command runner
+│
+├── 📧 Email Monitoring
+│   ├── EMAIL_DASHBOARD_GUIDE.md    ← Dashboard usage
+│   └── DEMO_MODE_GUIDE.md          ← Continuous monitoring
+│
+├── 📚 docs/
+│   └── README.md                   ← Documentation index
+│
+└── app/                            ← Source code
+    ├── database/                   ← Threat intelligence
+    │   ├── README.md               ← Database quick start
+    │   └── Documentation/          ← Technical details
+    ├── detector/                   ← Email analysis
+    │   ├── README.md               ← Detector quick start
+    │   └── Documentation/          ← Technical details
+    └── dashboard/                  ← Web interface
+        ├── README.md               ← Dashboard quick start
+        └── Documentation/          ← Technical details
 ```
+
+**Navigate:** [📚 Full Documentation Index](docs/README.md)
 
 ---
 
-## Documentation
+## 📖 Documentation
 
-- [Database Setup Guide](app/database/README.md) - Quick start and commands
-- [Complete Database Documentation](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) - Technical details (985 lines)
-- [Data Sources](app/database/Documentation%20%26%20Sources%20Research/Data%20Sources.md) - Threat feed specifications
+### By Role
+
+**👤 End User** (just want to use it):
+- Start: [QUICK_START.md](QUICK_START.md)
+- Dashboard: [EMAIL_DASHBOARD_GUIDE.md](EMAIL_DASHBOARD_GUIDE.md)
+- Demo Mode: [DEMO_MODE_GUIDE.md](DEMO_MODE_GUIDE.md)
+
+**👨‍💻 Developer** (want to understand/modify):
+- Overview: [Technical Report](TECHNICAL_REPORT.md)
+- Database: [app/database/README.md](app/database/README.md)
+- Detector: [app/detector/README.md](app/detector/README.md)
+- Dashboard: [app/dashboard/README.md](app/dashboard/README.md)
+
+**🔬 Researcher** (want full details):
+- Complete Index: [docs/README.md](docs/README.md)
+- Database Guide: [DATABASE_GUIDE.md](app/database/Documentation%20&%20Sources%20Research/DATABASE_GUIDE.md)
+- Detector Guide: [DETECTOR_GUIDE.md](app/detector/Documentation/DETECTOR_GUIDE.md)
+
+### By Topic
+
+| Topic | Quick Start | Technical Details |
+|-------|-------------|-------------------|
+| **Email Monitoring** | [EMAIL_DASHBOARD_GUIDE.md](EMAIL_DASHBOARD_GUIDE.md) | [DETECTOR_GUIDE.md](app/detector/Documentation/DETECTOR_GUIDE.md) |
+| **Database** | [app/database/README.md](app/database/README.md) | [DATABASE_GUIDE.md](app/database/Documentation%20&%20Sources%20Research/DATABASE_GUIDE.md) |
+| **Dashboard** | [app/dashboard/README.md](app/dashboard/README.md) | [DASHBOARD_GUIDE.md](app/dashboard/Documentation/DASHBOARD_GUIDE.md) |
+| **Overall System** | [QUICK_START.md](QUICK_START.md) | [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md) |
 
 ---
 
-## Command Reference
+## 🐛 Troubleshooting
 
-For a complete list of all available commands and options:
+### Common Issues
 
-```bash
-# View all commands
-python run.py --help
+| Issue | Solution |
+|-------|----------|
+| No emails showing | Run `python debug_emails.py --check` |
+| URL not matching threat feed | Run `python check_url_matching.py <URL>` |
+| Duplicate enrichment | Fixed - automatic detection now |
+| Database errors | Run `python check_duplicates.py` |
 
-# View command-specific help
-python run.py setup --help
-python run.py enrich --help
-python run.py api --help
-
-# Quick reference
-python commands.py
-```
-
-### Common Commands
-
-```bash
-# Setup and initialization
-python run.py setup                    # Full setup
-python run.py setup --fast-enrich      # Quick setup
-python run.py db                       # Init databases only
-
-# Data management
-python run.py fetch                    # Fetch threat feeds
-python run.py enrich --limit 100       # Enrich 100 URLs
-python run.py enrich --skip-existing   # Skip already enriched
-
-# Email detection
-python run.py auth                     # Gmail authentication
-python run.py emails --count 10        # Fetch 10 emails
-python run.py enrich-emails            # Enrich fetched emails
-
-# Services
-python run.py api                      # Run API server
-python run.py api --reload             # Run with auto-reload
-python run.py dashboard                # Run dashboard
-```
-
-## Troubleshooting
-
-### Setup Issues
-
-**"Virtual environment not found"**
-```bash
-python run.py setup
-# Or: ./setup.sh (Bash) or ./setup.fish (Fish)
-```
-
-**"Database initialization failed"**
-```bash
-python run.py db
-# Or manually:
-# python -m app.database.rawdb
-# python -m app.database.db
-```
-
-**"No threat data"**
-```bash
-# Ensure you have internet connection, then:
-python run.py fetch
-# Or: python -m app.database.grabrawdata
-```
-
-### More Help
-
-See [Database README](app/database/README.md) for database-specific troubleshooting.
+**Detailed troubleshooting:** See module READMEs or run `python start.py` → option 5 (Help)
 
 ---
 
@@ -319,99 +300,31 @@ See [Database README](app/database/README.md) for database-specific troubleshoot
 
 ---
 
-## Documentation
+## 📊 System Performance
 
-### Module Documentation
-- **[Database Module](app/database/README.md)** - Threat feed collection and enrichment
-  - [Complete Database Guide](app/database/Documentation%20%26%20Sources%20Research/DATABASE_GUIDE.md) 
-  - [Data Sources](app/database/Documentation%20%26%20Sources%20Research/Data%20Sources.md)
-
-- **[Detector Module](app/detector/README.md)** - Email analysis and risk scoring
-  - [Complete Detector Guide](app/detector/Documentation/DETECTOR_GUIDE.md) 
-
-- **[Dashboard Module](app/dashboard/README.md)** - Web visualization
-  - [Complete Dashboard Guide](app/dashboard/Documentation/DASHBOARD_GUIDE.md) 
-
-- **[App Module](app/README.md)** - Main application and API
-
-### Technical Documentation
-- **[Technical Report](TECHNICAL_REPORT.md)**
-  - Introduction and background
-  - System architecture
-  - Data sources and enrichment methodology
-  - Risk scoring algorithm design
-  - Implementation details
-  - Evaluation and results
-  - Limitations and future work
-
-- **[Presentation Slides](PRESENTATION.pdf)** (10 slides, LaTeX Beamer)
-  - Clean, minimalist design with focused content
-  - Problem statement with compelling statistics
-  - Solution architecture and risk scoring methodology
-  - Real phishing detection example walkthrough
-  - Performance metrics and key achievements
-  - Future enhancements and conclusion
-  - Source: [PRESENTATION.tex](PRESENTATION.tex) | Compilation guide: [PRESENTATION_README.md](PRESENTATION_README.md)
-
-- **[Risk Scoring Summary](RISK_SCORING_SUMMARY.md)** - Implementation details
-
-### Total Documentation
-Over **15,000 words** of comprehensive technical documentation covering:
-- Setup and installation
-- Architecture and design
-- API reference
-- Troubleshooting
-- Research and evaluation
+- **Email Analysis:** 5-10 URLs/email in ~8 seconds (parallel)
+- **Threat Matching:** Instant (indexed database lookup)
+- **URL Enrichment:** ~1 second/URL (async mode)
+- **Dashboard Load:** <1 second (cached)
 
 ---
 
-## Performance
+## 🤝 Contributing
 
-### Enrichment Speed
-- **Sequential:** 4-6 seconds per URL
-- **Async (default):** ~1 second per URL (10x speedup)
-- **Full dataset (52,000 URLs):** 15-18 hours
-
-### Dashboard Load Times
-- **First load:** 2-4 seconds
-- **Cached:** <1 second
-
-### Email Analysis
-- **5-10 URLs per email:** 8-10 seconds (parallel enrichment)
-- **Typical Gmail inbox:** 25 emails processed in ~4 minutes
-
----
-
-## System Requirements
-
-### Minimum
-- **CPU:** 2 cores
-- **RAM:** 4 GB
-- **Disk:** 500 MB (database + code)
-- **OS:** Linux, macOS, or Windows (WSL)
-
-### Recommended
-- **CPU:** 4+ cores (for parallel enrichment)
-- **RAM:** 8 GB
-- **Disk:** 2 GB (with room for growth)
-- **Internet:** Broadband (for threat feeds and enrichment APIs)
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests and documentation
-5. Submit a pull request
-
-**Areas for Contribution:**
+Contributions welcome! Areas for improvement:
 - Additional threat feed integrations
 - Machine learning classifiers
-- Dashboard improvements
+- Dashboard enhancements
 - Performance optimizations
-- Bug fixes and testing
+
+See [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md) for architecture details.
+
+## 💻 System Requirements
+
+**Minimum:** Python 3.11+, 4GB RAM, 500MB disk  
+**Recommended:** 4+ cores, 8GB RAM, 2GB disk
+
+Supports: Linux, macOS, Windows (WSL)
 
 ---
 
@@ -437,14 +350,25 @@ If you use this project in research, please cite:
 
 ---
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- **OpenPhish** - Free phishing feed
-- **PhishTank** - Community-driven phishing database
-- **URLhaus** - Malware URL database
-- **MaxMind** - GeoLite2 geographic databases
-- **OASIS** - STIX 2.1 standard
+- **OpenPhish, PhishTank, URLhaus** - Threat feeds
+- **MaxMind** - GeoLite2 databases
+- **Google** - Gmail API
 
 ---
 
-**Ready to detect and analyze phishing threats!**
+## 🔗 Quick Links
+
+- 📚 [Complete Documentation Index](docs/README.md)
+- ⚡ [Quick Start Guide](QUICK_START.md)
+- 📧 [Email Monitoring Guide](EMAIL_DASHBOARD_GUIDE.md)
+- 🎬 [Demo Mode Guide](DEMO_MODE_GUIDE.md)
+- 🗄️ [Database Documentation](app/database/README.md)
+- 📊 [Dashboard Documentation](app/dashboard/README.md)
+- 🔍 [Detector Documentation](app/detector/README.md)
+- 📖 [Technical Report](TECHNICAL_REPORT.md)
+
+---
+
+**Ready to detect phishing threats!** Start with: `python run.py demo --once` 🚀

@@ -1,33 +1,34 @@
 # 🚀 Quick Start Guide
 
-## TL;DR - Just 2 Commands
+## TL;DR - Just 1 Command
 
 ```bash
-# 1. First time? Run demo (auto-setup + test)
+# First time? Run demo (auto-setup + test + dashboard)
 python run.py demo --once
-
-# 2. Open dashboard to see results
-python run.py dashboard
 ```
 
-Done! 🎉
+Done! Dashboard auto-opens at http://localhost:8501 🎉
 
 ## The 4 Commands You Actually Need
 
-### 1️⃣ `demo` - Everything Automated
+### 1️⃣ `demo` - Everything Automated + Dashboard
 ```bash
 python run.py demo
 ```
 - Auto-setup database
 - Auto-authenticate Gmail
+- **Auto-launch dashboard** (http://localhost:8501)
 - Fetch emails every 5 minutes
 - Analyze for threats
+- **Dashboard auto-refreshes** after each fetch
 - Show statistics
 
 **Options:**
-- `--once` - Run once and exit (for testing)
+- `--once` - Run once and exit (dashboard stays open)
 - `--interval 60` - Check every 60 seconds
 - `--count 10` - Fetch 10 emails per check
+- `--no-dashboard` - Don't auto-launch dashboard
+- `--dashboard-port 9000` - Use different port
 
 ### 2️⃣ `auth` - Gmail Authentication
 ```bash
@@ -71,11 +72,8 @@ python run.py dashboard
 
 ### Regular Use
 ```bash
-# Terminal 1: Continuous monitoring
+# Just one command - dashboard auto-launches!
 python run.py demo
-
-# Terminal 2: Dashboard
-python run.py dashboard
 ```
 
 ### Manual Mode
@@ -180,4 +178,17 @@ These are advanced/internal commands - **you probably don't need them**:
 4. **To debug**: `python debug_emails.py --check`
 
 That's it! Just 4 commands for everything. 🎯
+
+---
+
+## 🔗 Related Documentation
+
+- **[← Back to Main README](README.md)** - Project overview
+- **[→ Email Dashboard Guide](EMAIL_DASHBOARD_GUIDE.md)** - Dashboard features
+- **[→ Demo Mode Guide](DEMO_MODE_GUIDE.md)** - Continuous monitoring details
+- **[→ Complete Documentation Index](docs/README.md)** - All documentation
+
+---
+
+**Next step:** Run `python run.py demo --once` and explore the dashboard! 🚀
 
