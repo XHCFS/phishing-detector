@@ -1,10 +1,11 @@
 \documentclass[aspectratio=169]{beamer}
-\usetheme{Madrid}
+\usetheme{metropolis}
 \usecolortheme{default}
 
 % Packages
 \usepackage{graphicx}
 \usepackage{tikz}
+\usetikzlibrary{positioning}
 \usepackage{booktabs}
 \usepackage{listings}
 \usepackage{xcolor}
@@ -25,20 +26,22 @@
 
 % Title page information
 \title{Automated Phishing Email Detection System}
-\subtitle{Real-Time Threat Intelligence \& Risk Assessment}
-\author{Phishing Detector Project}
-\date{\today}
-\institute{Enterprise Email Security Solution}
+\subtitle{Prototype Threat Intelligence \& Risk Assessment Tool}
+\author{Aser Osama - Saif Ismail - Omar Ayman}
+\date{University of Science and Technology Zewail City}
+\institute{October 2025}
 
 \begin{document}
 
 % ============================================================================
 % TITLE SLIDE
 % ============================================================================
-\begin{frame}
+\begin{frame}[plain]
+\vspace*{-0.7cm}
 \titlepage
+\vspace*{-0.7cm}
 \begin{center}
-\large{\textcolor{criticalred}{$\blacktriangledown$} Protecting Your Organization from Email Threats}
+\scriptsize{A Research Prototype for Automated Phishing Detection}
 \end{center}
 \end{frame}
 
@@ -46,7 +49,10 @@
 % TABLE OF CONTENTS
 % ============================================================================
 \begin{frame}{Presentation Overview}
+\vspace{0.6cm}
+\small
 \tableofcontents
+\vfill
 \end{frame}
 
 % ============================================================================
@@ -54,69 +60,71 @@
 % ============================================================================
 \section{The Problem: Phishing Email Threats}
 
-\begin{frame}{Email Security: A Critical Business Challenge}
+\begin{frame}{Email Security: A Critical Challenge}
 \begin{columns}[T]
 \column{0.5\textwidth}
+\small
 \textbf{The Threat Landscape:}
 \begin{itemize}
-    \item \textbf{3.4 billion} phishing emails sent daily
-    \item \textbf{90\%} of data breaches start with phishing
-    \item \textbf{\$5.9 billion} lost to phishing in 2023
-    \item Average cost per incident: \textbf{\$4.91 million}
+    \item Over \textbf{255 million} phishing attacks in 2022
+    \item Phishing is most common initial access
+    \item Avg phishing site lifetime: \textbf{4-8 hours}
+    \item Traditional detection too slow (24-72h)
 \end{itemize}
 
-\vspace{0.5cm}
-\textbf{Why Traditional Solutions Fall Short:}
+\vspace{0.3cm}
+\textbf{Current Challenges:}
 \begin{itemize}
-    \item Manual review is slow and error-prone
-    \item Spam filters miss sophisticated attacks
-    \item No real-time threat intelligence integration
-    \item Limited visibility into URL safety
+    \item Manual review doesn't scale
+    \item Spam filters miss attacks
+    \item Threat feeds lack context
+    \item No unified risk assessment
 \end{itemize}
 
 \column{0.5\textwidth}
-\begin{center}
-\begin{tikzpicture}[scale=0.8]
-% Pie chart showing breach causes
-\fill[criticalred] (0,0) -- (90:2) arc (90:162:2) -- cycle;
-\fill[highorange] (0,0) -- (162:2) arc (162:198:2) -- cycle;
-\fill[mediumyellow] (0,0) -- (198:2) arc (198:270:2) -- cycle;
-\fill[lowgreen] (0,0) -- (270:2) arc (270:90:2) -- cycle;
+\small
+\textbf{Our Approach:}
+\begin{itemize}
+    \item \cmark\ Aggregate threat feeds
+    \item \cmark\ Enrich with technical context
+    \item \cmark\ Automated risk scoring (0-100)
+    \item \cmark\ Real-time email monitoring
+    \item \cmark\ Visual dashboard interface
+\end{itemize}
 
-\node at (126:1.3) {\textbf{90\%}};
-\node at (126:1) {\small Phishing};
-
-\node at (180:1.5) {\small 4\%};
-\node at (234:1.5) {\small 3\%};
-\node at (0:1.5) {\small 3\%};
-
-\node[below] at (0,-2.8) {\textbf{Data Breach Causes}};
-\node[below] at (0,-3.3) {\small Source: Verizon DBIR 2024};
-\end{tikzpicture}
-\end{center}
+\vspace{0.1cm}
+\begin{block}{Project Goal}
+\scriptsize
+\textbf{Open-source} prototype combining threat intel, enrichment, and risk scoring.
+\end{block}
 \end{columns}
 \end{frame}
 
-\begin{frame}{Real-World Impact}
-\begin{block}{Case Study: Fortune 500 Company}
-\textbf{Incident:} CEO received email impersonating the CFO requesting wire transfer
+\begin{frame}{Why This Project?}
+\vspace{-0.2cm}
+\scriptsize
+\textbf{Research Gap:} No open-source solution combines multi-feed aggregation, automated enrichment, risk prioritization, and deployable system.
 
-\vspace{0.3cm}
-\textbf{What Happened:}
-\begin{itemize}
-    \item Email appeared legitimate (spoofed domain)
-    \item URL led to convincing fake login page
-    \item Credentials harvested, \textbf{\$47 million} stolen
-    \item 3 weeks to detect and contain
-\end{itemize}
+\vspace{0.1cm}
+\textbf{Existing Solutions:}
 
-\vspace{0.3cm}
-\textbf{The Problem:} No automated URL verification against threat intelligence
-\end{block}
+\begin{center}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Type} & \textbf{Strengths} & \textbf{Limitations} \\
+\midrule
+Public Feeds & Free, high-volume & No enrichment \\
+Commercial TIP & Comprehensive & Expensive \\
+Email Gateways & Inline protection & Proprietary \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-\vspace{0.3cm}
-\begin{alertblock}{Key Takeaway}
-\textbf{Early detection is critical.} Identifying malicious URLs \emph{before} user interaction prevents breaches.
+\vspace{0.1cm}
+\begin{alertblock}{Our Contribution}
+\scriptsize
+Free, customizable prototype with automated enrichment and risk scoring
 \end{alertblock}
 \end{frame}
 
@@ -125,123 +133,131 @@
 % ============================================================================
 \section{Our Solution: Automated Detection System}
 
-\begin{frame}{Introducing: Phishing Email Detector}
+\begin{frame}{System Overview}
+\vspace*{-0.3cm}
 \begin{center}
-\Large{\textbf{Automated, Real-Time Email Threat Detection}}
+\small{\textbf{Phishing Email Detector Prototype}}
 
-\vspace{0.5cm}
-\large{Using Advanced Threat Intelligence \& Risk Scoring}
+\vspace{0.1cm}
+\scriptsize{Threat Intelligence + Risk Scoring + Email Monitoring}
 \end{center}
 
-\vspace{0.5cm}
+\vspace{0.1cm}
 \begin{columns}[T]
 \column{0.33\textwidth}
-\begin{block}{1. Monitor}
+\begin{block}{1. Aggregate}
 \begin{center}
-\huge{$\bigstar$}
+\small{$\bigstar$}
 \end{center}
-Continuously fetch and analyze incoming Gmail messages
+\scriptsize
+3 threat feeds
 \end{block}
 
 \column{0.33\textwidth}
-\begin{block}{2. Detect}
+\begin{block}{2. Enrich}
 \begin{center}
-\huge{$\blacktriangledown$}
+\small{$\blacktriangledown$}
 \end{center}
-Check URLs against 50,000+ known phishing sites
+\scriptsize
+41 data points
 \end{block}
 
 \column{0.33\textwidth}
-\begin{block}{3. Score}
+\begin{block}{3. Analyze}
 \begin{center}
-\huge{$\bigodot$}
+\small{$\bigodot$}
 \end{center}
-Calculate risk score (0-100) for every email
+\scriptsize
+Risk scores (0-100)
 \end{block}
 \end{columns}
 
-\vspace{0.5cm}
-\begin{center}
-\textbf{Result:} Immediate alerts for high-risk emails with detailed analysis
-\end{center}
+\vspace{0.1cm}
+\scriptsize
+\textbf{DB:} 55K URLs | \textbf{Fields:} 41 | \textbf{Time:} 5-10 sec/email
 \end{frame}
 
-\begin{frame}{How It Works: Simple 3-Step Process}
+\begin{frame}{System Architecture}
 \begin{center}
-\begin{tikzpicture}[node distance=3cm, auto]
-% Nodes
-\node[draw, rectangle, rounded corners, fill=codeblue!20, text width=4cm, align=center] (email) {
-    \textbf{Step 1: Email Arrives}\\[0.2cm]
-    \small System fetches email\\
-    Extracts all URLs
-};
+\scalebox{0.65}{
+\begin{tikzpicture}[
+    node distance=2.3cm,
+    box/.style={draw, rectangle, rounded corners, minimum width=1.8cm, minimum height=1cm, align=center, font=\scriptsize},
+    feed/.style={box, fill=blue!15},
+    db/.style={box, fill=green!15},
+    process/.style={box, fill=orange!15},
+    ui/.style={box, fill=teal!15}
+]
 
-\node[draw, rectangle, rounded corners, fill=codeblue!20, text width=4cm, align=center, right of=email] (check) {
-    \textbf{Step 2: Threat Check}\\[0.2cm]
-    \small Compare against\\
-    50,000+ known threats
-};
+% Top row
+\node[feed] (feeds) {\textbf{Threat Feeds}\\\tiny OpenPhish, PhishTank};
+\node[db, right=of feeds] (rawdb) {\textbf{Raw DB}\\\tiny 55K URLs};
+\node[process, right=of rawdb] (enrich) {\textbf{Enrichment}\\\tiny WHOIS, GeoIP};
+\node[db, right=of enrich] (enrichdb) {\textbf{Enriched DB}\\\tiny 41 fields};
 
-\node[draw, rectangle, rounded corners, fill=codeblue!20, text width=4cm, align=center, right of=check] (score) {
-    \textbf{Step 3: Risk Score}\\[0.2cm]
-    \small Calculate score\\
-    Alert if high-risk
-};
+% Bottom row
+\node[feed, below=1.3cm of rawdb] (gmail) {\textbf{Gmail API}\\\tiny Fetch emails};
+\node[process, below=1.3cm of enrich] (scoring) {\textbf{Risk Scoring}\\\tiny 0-100 scale};
+\node[ui, below=1.3cm of enrichdb] (dash) {\textbf{Dashboard}\\\tiny Streamlit UI};
 
 % Arrows
-\draw[->, thick] (email) -- (check);
-\draw[->, thick] (check) -- (score);
-
-% Outcome
-\node[below of=score, yshift=1.5cm, text width=4cm, align=center] {
-    \textcolor{criticalred}{$\bigstar$} \textbf{Alert Dashboard}\\
-    \small Visual interface shows\\
-    risk assessment
-};
+\draw[->, thick] (feeds) -- (rawdb);
+\draw[->, thick] (rawdb) -- (enrich);
+\draw[->, thick] (enrich) -- (enrichdb);
+\draw[->, thick] (gmail) -- (scoring);
+\draw[->, thick] (scoring) -- (dash);
+\draw[->, thick, dashed] (enrichdb) -- (scoring);
 \end{tikzpicture}
+}
 \end{center}
 
-\vspace{0.3cm}
-\begin{block}{Fully Automated}
-No manual intervention required. System runs continuously, analyzing every incoming email.
-\end{block}
+\vspace{0.15cm}
+\small
+\textbf{Stack:} Python 3.11+, SQLite, FastAPI, Streamlit
 \end{frame}
 
-\begin{frame}{Key Features \& Capabilities}
+\begin{frame}{Where We Get Threat Data}
+\small
 \begin{columns}[T]
 \column{0.5\textwidth}
-\textbf{Detection Capabilities:}
+\textbf{3 Public Threat Feeds:}
 \begin{itemize}
-    \item \feature{Real-time email monitoring}
-    \item \feature{50,000+ threat database}
-    \item \feature{Automatic URL extraction}
-    \item \feature{Threat feed integration}
+    \item \textbf{OpenPhish:} 1,200 URLs
     \begin{itemize}
-        \item PhishTank
-        \item URLhaus  
-        \item OpenPhish
+        \item \scriptsize Free, hourly updates
+        \item \scriptsize Recently confirmed
     \end{itemize}
-    \item \feature{Multi-factor risk analysis}
-    \item \feature{Instant threat alerts}
+    \item \textbf{PhishTank:} 51,825 URLs
+    \begin{itemize}
+        \item \scriptsize Community-reported
+        \item \scriptsize Brand targeting info
+    \end{itemize}
+    \item \textbf{URLhaus:} 2,317 URLs
+    \begin{itemize}
+        \scriptsize \item Malware sites
+        \scriptsize \item File information
+    \end{itemize}
 \end{itemize}
+
+\vspace{0.2cm}
+\textbf{Total:} \textasciitilde55K URLs
 
 \column{0.5\textwidth}
-\textbf{Business Benefits:}
+\textbf{41 Data Points Collected:}
 \begin{itemize}
-    \item \feature{Zero manual review needed}
-    \item \feature{5-10x faster than manual checks}
-    \item \feature{24/7 continuous monitoring}
-    \item \feature{Detailed audit trail}
-    \item \feature{One-click deployment}
-    \item \feature{Visual dashboard interface}
-    \item \feature{Exportable reports}
+    \item \textbf{Network:} IP, hosting provider
+    \item \textbf{Location:} Country, city
+    \item \textbf{Security:} SSL certificate
+    \item \textbf{Domain:} Registration info
+    \item \textbf{DNS:} Name servers
+    \item \textbf{Website:} Online status, title
+    \item \textbf{Classification:} Target brand
 \end{itemize}
-\end{columns}
 
-\vspace{0.5cm}
-\begin{center}
-\textbf{Bottom Line:} Automated protection that scales with your email volume
-\end{center}
+\vspace{0.2cm}
+\scriptsize
+\textbf{Note:} Only 31\% have full WHOIS data
+\end{columns}
 \end{frame}
 
 % ============================================================================
@@ -249,62 +265,109 @@ No manual intervention required. System runs continuously, analyzing every incom
 % ============================================================================
 \section{Risk Scoring: How We Assess Threats}
 
-\begin{frame}{Intelligent Risk Scoring Algorithm}
-\textbf{Every URL analyzed across 5 key factors:}
+\begin{frame}{Risk Scoring: How We Calculate 0-100 Score}
+\small
+\textbf{5 Factors Combined:}
+
+\vspace{0.2cm}
+\begin{enumerate}
+    \item \textbf{\textcolor{criticalred}{Site online?}} (0-35 pts)
+    \begin{itemize}
+        \scriptsize
+        \item Accessible: 35 pts; Offline: 10-20 pts
+        \item \textit{Why:} Active sites more dangerous
+    \end{itemize}
+    
+    \item \textbf{\textcolor{highorange}{Recently reported?}} (0-25 pts)
+    \begin{itemize}
+        \scriptsize
+        \item Last 3 days: 25 pts; Last week: 20 pts; >30d: 5 pts
+        \item \textit{Why:} Recent threats more active
+    \end{itemize}
+    
+    \item \textbf{\textcolor{mediumyellow}{Domain age?}} (0-20 pts)
+    \begin{itemize}
+        \scriptsize
+        \item <7 days: 20 pts; <30 days: 15 pts; >90d: 5 pts
+        \item \textit{Why:} New domains suspicious
+    \end{itemize}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Risk Scoring (Continued)}
+\small
+\begin{enumerate}
+    \setcounter{enumi}{3}
+    
+    \item \textbf{\textcolor{codeblue}{Domain type?}} (0-10 pts)
+    \begin{itemize}
+        \scriptsize
+        \item High-risk TLDs (.zip, .click, .xyz): 10 pts
+        \item Free hosting (github.io, pages.dev): 10 pts
+        \item Common (.com, .net, .org): 5 pts
+        \item \textit{Why:} Cheap domains favored by attackers
+    \end{itemize}
+    
+    \item \textbf{\textcolor{lowgreen}{Suspicious words?}} (0-10 pts)
+    \begin{itemize}
+        \scriptsize
+        \item Has "login", "verify", "secure", etc: 10 pts
+        \item No suspicious words: 0 pts
+        \item \textit{Why:} Phishing uses trust words
+    \end{itemize}
+\end{enumerate}
 
 \vspace{0.3cm}
-\begin{tabular}{llp{6cm}}
-\toprule
-\textbf{Factor} & \textbf{Weight} & \textbf{What It Checks} \\
-\midrule
-\textcolor{criticalred}{Liveness} & 0-35 pts & Is the malicious site currently active? \\[0.2cm]
-\textcolor{highorange}{Recency} & 0-25 pts & Was it seen in the last few days? \\[0.2cm]
-\textcolor{mediumyellow}{Domain Age} & 0-20 pts & Is it a newly created domain? \\[0.2cm]
-\textcolor{codeblue}{TLD/Platform} & 0-10 pts & Suspicious TLD (.zip, .click)? \\[0.2cm]
-\textcolor{lowgreen}{Keywords} & 0-10 pts & Contains "login", "verify", "bank"? \\
-\bottomrule
-\end{tabular}
+\textbf{Final Score = Sum of all 5 factors (0-100)}
 
-\vspace{0.5cm}
+\vspace{0.2cm}
 \begin{block}{Risk Levels}
-\begin{tabular}{ll}
-\textcolor{criticalred}{\textbf{85-100}} & \textbf{Critical} - Immediate action required \\
-\textcolor{highorange}{\textbf{70-84}} & \textbf{High} - Investigate promptly \\
-\textcolor{mediumyellow}{\textbf{50-69}} & \textbf{Medium} - Monitor closely \\
-\textcolor{lowgreen}{\textbf{0-49}} & \textbf{Low} - Likely safe \\
-\end{tabular}
+\small
+\textcolor{criticalred}{\textbf{85-100 Critical}} \quad
+\textcolor{highorange}{\textbf{70-84 High}} \quad
+\textcolor{mediumyellow}{\textbf{50-69 Medium}} \quad
+\textcolor{lowgreen}{\textbf{0-49 Low}}
 \end{block}
 \end{frame}
 
-\begin{frame}{Example: High-Risk Email Detection}
-\begin{exampleblock}{Scenario: Suspicious Email Received}
-\textbf{Email Subject:} "Urgent: Verify Your Account"\\
-\textbf{Sender:} support@secure-login-microsoft.zip\\
-\textbf{URL Found:} https://secure-login-microsoft.zip/verify
+\begin{frame}{Example: High-Risk URL Scoring}
+\small
+\begin{exampleblock}{Scenario: Suspicious URL Detected}
+\scriptsize
+\textbf{URL:} https://secure-login-microsoft.zip/verify
 \end{exampleblock}
 
-\vspace{0.3cm}
-\textbf{System Analysis:}
+\vspace{0.2cm}
+\textbf{Scoring Calculation:}
 \begin{center}
-\begin{tabular}{lcc}
+\scriptsize
+\begin{tabular}{lccc}
 \toprule
-\textbf{Factor} & \textbf{Score} & \textbf{Reason} \\
+\textbf{Factor} & \textbf{Points} & \textbf{Data} & \textbf{Logic} \\
 \midrule
-Liveness & 35 pts & \small Site is currently online (HTTP 200) \\
-Recency & 25 pts & \small First seen today \\
-Domain Age & 20 pts & \small Domain created 2 days ago \\
-TLD/Platform & 10 pts & \small .zip TLD (high-risk) \\
-Keywords & 10 pts & \small "secure", "login", "verify" \\
+Liveness & 35 & HTTP 200 & Online \\
+Recency & 25 & Today & $\leq$ 3 days \\
+Domain Age & 20 & 2 days & $\leq$ 7 days \\
+TLD & 10 & .zip & High-risk \\
+Keywords & 10 & verify, login & Suspicious \\
 \midrule
-\textbf{Total} & \textbf{100/100} & \textcolor{criticalred}{\textbf{CRITICAL RISK}} \\
+\textbf{Total} & \textbf{100} & & \textcolor{criticalred}{\textbf{CRITICAL}} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\vspace{0.3cm}
-\begin{alertblock}{Action Taken}
-\textbf{Email flagged as CRITICAL.} Dashboard shows red alert. Security team notified instantly.
-\end{alertblock}
+\vspace{0.2cm}
+\textbf{Legitimate Site (github.com):}
+\begin{center}
+\scriptsize
+\begin{tabular}{lcl}
+\toprule
+Liveness: 35 & Domain Age: 5 (2008) & TLD: 5 (.com) \\
+Recency: 5 (>30d) & Keywords: 0 & \textbf{Total: 50} \\
+\bottomrule
+\end{tabular}
+\textcolor{mediumyellow}{\textbf{MEDIUM}} (acceptable)
+\end{center}
 \end{frame}
 
 % ============================================================================
@@ -312,90 +375,74 @@ Keywords & 10 pts & \small "secure", "login", "verify" \\
 % ============================================================================
 \section{Technology \& Architecture}
 
-\begin{frame}{System Architecture (Simplified)}
+\begin{frame}{Email Monitoring Flow}
+\vspace*{-1.0cm}
 \begin{center}
-\begin{tikzpicture}[node distance=2.5cm, scale=0.9, every node/.style={scale=0.9}]
-% Gmail
-\node[draw, rectangle, rounded corners, fill=blue!20, text width=2.5cm, align=center] (gmail) {
-    \textbf{Gmail}\\
-    \small Your inbox
-};
+\scalebox{0.37}{
+\begin{tikzpicture}[
+    node distance=1.8cm,
+    box/.style={draw, rectangle, rounded corners, minimum width=2cm, minimum height=1.2cm, align=center, font=\scriptsize},
+    api/.style={box, fill=blue!15},
+    process/.style={box, fill=green!15},
+    data/.style={box, fill=orange!15},
+    ui/.style={box, fill=purple!15}
+]
 
-% Detector
-\node[draw, rectangle, rounded corners, fill=green!20, text width=2.5cm, align=center, right of=gmail] (detector) {
-    \textbf{Detector}\\
-    \small Fetch emails\\
-    Extract URLs
-};
-
-% Threat DB
-\node[draw, rectangle, rounded corners, fill=orange!20, text width=2.5cm, align=center, right of=detector] (db) {
-    \textbf{Threat DB}\\
-    \small 50,000+ URLs\\
-    Risk scores
-};
-
-% Dashboard
-\node[draw, rectangle, rounded corners, fill=purple!20, text width=2.5cm, align=center, below of=detector] (dashboard) {
-    \textbf{Dashboard}\\
-    \small Visual alerts\\
-    Risk analysis
-};
+% Nodes
+\node[api] (gmail) {\textbf{Gmail API}\\\tiny OAuth 2.0};
+\node[process, right=of gmail] (detector) {\textbf{Detector}\\\tiny Extract URLs};
+\node[data, right=of detector] (db) {\textbf{Threat DB}\\\tiny 55K URLs};
+\node[ui, below=1.0cm of detector] (dashboard) {\textbf{Dashboard}\\\tiny Streamlit};
 
 % Arrows
-\draw[->, thick] (gmail) -- node[above] {\small Fetch} (detector);
-\draw[->, thick] (detector) -- node[above] {\small Check} (db);
-\draw[->, thick] (db) -- node[right] {\small Score} (dashboard);
-\draw[->, thick] (detector) -- (dashboard);
-
-% Security team
-\node[below of=dashboard, yshift=1cm] (team) {
-    $\bigstar$ \textbf{Security Team}
-};
-\draw[->, thick, dashed] (dashboard) -- node[right] {\small Alert} (team);
+\draw[->, thick] (gmail) -- node[above, font=\tiny] {Fetch} (detector);
+\draw[->, thick] (detector) -- node[above, font=\tiny] {Match} (db);
+\draw[->, thick] (db) -- node[right, font=\tiny] {Calculate} (dashboard);
+\draw[->, thick] (detector) -- node[left, font=\tiny] {Store} (dashboard);
 \end{tikzpicture}
+}
 \end{center}
-
-\vspace{0.3cm}
-\textbf{Data Flow:} Email → URL Extraction → Threat Check → Risk Score → Alert
+\vspace{-0.5cm}
+\tiny
+\textbf{Processing:} 5-10 sec/email | \textbf{Interval:} 5 min
 \end{frame}
 
-\begin{frame}{Technology Stack (Non-Technical Overview)}
+\begin{frame}{Technology Stack}
+\scriptsize
 \begin{columns}[T]
 \column{0.5\textwidth}
-\textbf{What We Use:}
+\textbf{Programming:}
 \begin{itemize}
-    \item \textbf{Python} - Industry-standard, secure
-    \item \textbf{SQLite} - Reliable database (no server needed)
-    \item \textbf{Gmail API} - Official Google integration
-    \item \textbf{Public Threat Feeds} - Community-verified data
-    \item \textbf{Web Dashboard} - Modern browser-based UI
+    \item \textbf{Python 3.11+}: FastAPI, Streamlit
+    \item \textbf{SQLite}: 2 DBs (raw + enriched)
+    \item \textbf{Gmail API}: Read-only OAuth
 \end{itemize}
 
-\vspace{0.5cm}
-\textbf{Why This Matters:}
+\vspace{0.15cm}
+\textbf{Deployment:}
 \begin{itemize}
-    \item \cmark\ No expensive licenses
-    \item \cmark\ Runs on standard hardware
-    \item \cmark\ Easy to deploy
-    \item \cmark\ Secure by design
+    \item One command, Docker, Cross-platform
 \end{itemize}
 
 \column{0.5\textwidth}
-\textbf{Data Sources:}
+\textbf{External Data:}
 \begin{itemize}
-    \item \textbf{PhishTank} - 40,000+ verified phishing URLs
-    \item \textbf{URLhaus} - Malware distribution sites
-    \item \textbf{OpenPhish} - Real-time feed updates
-    \item \textbf{GeoIP} - Geographic threat tracking
-    \item \textbf{WHOIS} - Domain registration data
+    \item \textbf{Threat Intel}: PhishTank, URLhaus, OpenPhish
+    \item \textbf{Enrichment}: WHOIS, GeoIP, DNS, HTTP
 \end{itemize}
 
-\vspace{0.5cm}
-\begin{block}{Continuous Updates}
-Threat database updates automatically. Always current.
-\end{block}
+\vspace{0.15cm}
+\textbf{Export:}
+\begin{itemize}
+    \item STIX 2.1, CSV, JSON API
+\end{itemize}
 \end{columns}
+
+\vspace{0.15cm}
+\begin{center}
+\scriptsize
+\textbf{Open Source on GitHub}
+\end{center}
 \end{frame}
 
 % ============================================================================
@@ -403,77 +450,62 @@ Threat database updates automatically. Always current.
 % ============================================================================
 \section{The Dashboard: Your Command Center}
 
-\begin{frame}{Interactive Web Dashboard}
-\textbf{Primary Interface: Email Monitoring Tab}
+\begin{frame}{Dashboard Interface (Streamlit)}
+\textbf{5 Main Tabs:}
 
-\vspace{0.3cm}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{At-a-Glance Metrics:}
-\begin{itemize}
-    \item Total emails monitored
-    \item \textcolor{criticalred}{Critical risk count} (Score ≥85)
-    \item \textcolor{highorange}{High risk count} (Score 70-84)
-    \item Average risk score
-    \item Threat feed matches
-\end{itemize}
-
-\vspace{0.3cm}
-\textbf{Visualizations:}
-\begin{itemize}
-    \item Risk distribution pie chart
-    \item 30-day email timeline
-    \item Trend analysis graphs
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Email List Features:}
-\begin{itemize}
-    \item Color-coded risk badges
-    \item Sender and subject info
-    \item URL count per email
-    \item Threat feed match count
-\end{itemize}
-
-\vspace{0.3cm}
-\textbf{Drill-Down Analysis:}
-\begin{itemize}
-    \item Click any email to see details
-    \item View all URLs in email
-    \item See which URLs matched threat feeds
-    \item Access full enrichment data:
-    \begin{itemize}
-        \item \small Geographic location
-        \item \small Hosting provider
-        \item \small Domain age
-        \item \small SSL certificate info
-    \end{itemize}
-\end{itemize}
-\end{columns}
+\begin{enumerate}
+    \item \textbf{Email Monitoring}
+    \item \textbf{Threat Overview}
+    \item \textbf{Analytics}
+    \item \textbf{Data Explorer}
+    \item \textbf{Search}
+\end{enumerate}
 \end{frame}
 
-\begin{frame}{Dashboard: Risk Indicators}
-\textbf{Clear Visual Alerts:}
+\begin{frame}{Dashboard Tab Details}
+\begin{itemize}
+    \item \textbf{Email Monitoring:} Metrics, risk charts, timeline, filterable list
+    \item \textbf{Threat Overview:} Statistics, geographic maps
+    \item \textbf{Analytics:} ASN/TLD analysis
+    \item \textbf{Data Explorer:} Browse 55K threats
+    \item \textbf{Search:} URL/domain/IP lookup
+\end{itemize}
+\end{frame}
 
-\vspace{0.5cm}
+\begin{frame}{Dashboard: Top Metrics}
 \begin{center}
-\begin{tabular}{clp{7cm}}
+\small
+\begin{tabular}{ll}
 \toprule
-\textbf{Badge} & \textbf{Risk Level} & \textbf{What It Means} \\
+\textbf{Metric} & \textbf{Description} \\
 \midrule
-\textcolor{criticalred}{$\blacksquare$ \textbf{CRITICAL}} & 85-100 & Email contains known threat or highly suspicious URL - block immediately \\[0.3cm]
-\textcolor{highorange}{$\blacktriangledown$ \textbf{HIGH}} & 70-84 & Multiple risk factors present - investigate before clicking \\[0.3cm]
-\textcolor{mediumyellow}{$\bullet$ \textbf{MEDIUM}} & 50-69 & Some suspicious indicators - exercise caution \\[0.3cm]
-\textcolor{lowgreen}{$\checkmark$ \textbf{LOW}} & 0-49 & Appears safe - normal processing \\
+Total Emails & All in DB + 24h count \\
+Critical Risk & Score $\geq$ 85 \\
+High Risk & Score 70-84 \\
+Avg Risk Score & Average \\
+Threat Matches & External feed URLs \\
 \bottomrule
 \end{tabular}
 \end{center}
+\end{frame}
 
-\vspace{0.5cm}
-\begin{block}{Special Alert: Threat Feed Match}
-When a URL matches known phishing database: \textcolor{criticalred}{$\bigstar$ \textbf{THREAT FEED}} badge appears.\\
-\textbf{Action:} Automatic score of 100 (maximum risk) - confirmed threat.
-\end{block}
+\begin{frame}{Dashboard: Email List Features}
+\small
+\textbf{Filters \& Display:}
+\begin{itemize}
+    \item Filter: Risk threshold slider
+    \item Show: 25/50/100/200 emails
+    \item Sort: By risk score or date
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Risk Levels:}
+\begin{itemize}
+    \item \textcolor{criticalred}{CRITICAL (85-100)}
+    \item \textcolor{highorange}{HIGH (70-84)}
+    \item \textcolor{mediumyellow}{MEDIUM (50-69)}
+    \item \textcolor{lowgreen}{LOW (0-49)}
+\end{itemize}
 \end{frame}
 
 % ============================================================================
@@ -481,60 +513,69 @@ When a URL matches known phishing database: \textcolor{criticalred}{$\bigstar$ \
 % ============================================================================
 \section{Deployment \& Usage}
 
-\begin{frame}{Getting Started: One Command}
-\textbf{Deployment is remarkably simple:}
+\begin{frame}{Getting Started: One-Time Test}
+\small
+\textbf{Quick Start:}
 
-\vspace{0.5cm}
-\begin{block}{Installation \& Setup}
+\begin{block}{}
 \texttt{\$ python run.py demo --once}
+\end{block}
 
-\vspace{0.3cm}
-\textbf{This single command:}
+\vspace{0.2cm}
+\textbf{Auto-setup steps:}
 \begin{enumerate}
-    \item Creates threat database (downloads 50,000+ URLs)
-    \item Authenticates with Gmail
-    \item Launches web dashboard
-    \item Fetches and analyzes 5 test emails
-    \item Shows results in browser
+    \item Creates database schemas
+    \item Downloads 55K threat URLs
+    \item Quick enrichment (500 URLs)
+    \item Gmail OAuth authentication
+    \item Fetches 5 emails \& launches dashboard
 \end{enumerate}
-\textbf{Time required: ~3-5 minutes}
-\end{block}
 
-\vspace{0.5cm}
-\begin{block}{Continuous Monitoring}
-\texttt{\$ python run.py demo}
-
-\vspace{0.3cm}
-Runs continuously, checking Gmail every 5 minutes (configurable).\\
-Dashboard auto-refreshes to show new threats.
-\end{block}
+\vspace{0.2cm}
+\textbf{Time:} 15-20 minutes (first run)
 \end{frame}
 
-\begin{frame}{Daily Operations}
-\textbf{For Security Teams:}
-
-\vspace{0.5cm}
-\begin{enumerate}
-    \item \textbf{Morning:} Open dashboard (http://localhost:8501)
-    \item \textbf{Monitor:} Check "Critical Risk" metric
-    \item \textbf{Investigate:} Click red-flagged emails
-    \item \textbf{Act:} Block threats, educate users
-    \item \textbf{Report:} Export data for compliance
-\end{enumerate}
-
-\vspace{0.5cm}
-\begin{block}{No Special Training Required}
-Dashboard designed for non-technical users. Color coding and clear labels make threat identification obvious.
+\begin{frame}{Continuous Monitoring}
+\small
+\begin{block}{}
+\texttt{\$ python run.py demo}
 \end{block}
 
-\vspace{0.3cm}
-\begin{block}{Scalability}
+\vspace{0.2cm}
+\textbf{Settings:}
 \begin{itemize}
-    \item Handles 1,000+ emails/day on standard hardware
-    \item Sub-second threat lookups (indexed database)
-    \item Parallel processing for URL analysis
+    \item Interval: 300 sec (5 min) - configurable
+    \item Count: 5 emails per fetch - configurable
+    \item Example: \texttt{--interval 60 --count 10}
 \end{itemize}
-\end{block}
+\end{frame}
+
+\begin{frame}{System Requirements}
+\small
+\textbf{Requirements:}
+\begin{itemize}
+    \item Python 3.11+
+    \item 4-8 GB RAM
+    \item 2 GB storage
+    \item Linux, Mac, or Windows
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Performance \& Limitations}
+\small
+\textbf{Performance:}
+\begin{itemize}
+    \item Email analysis: 5-10 seconds
+    \item Threat lookup: Instant
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Limitations:}
+\begin{itemize}
+    \item Tested with <1,000 emails
+    \item WHOIS rate limited
+    \item Larger scale needs DB upgrade
+\end{itemize}
 \end{frame}
 
 % ============================================================================
@@ -542,666 +583,605 @@ Dashboard designed for non-technical users. Color coding and clear labels make t
 % ============================================================================
 \section{Real Example: Threat Detection in Action}
 
-\begin{frame}{Example: Detecting a Real Phishing Email}
+\begin{frame}{Example: Phishing Email Detection}
 \begin{block}{Email Received}
 \textbf{From:} security-alert@paypal-verify.com\\
-\textbf{Subject:} "Account Suspended - Immediate Action Required"\\
-\textbf{Content:} "Click here to verify your account: https://paypal-secure.xyz/login"
+\textbf{Subject:} "Account Suspended"\\
+\textbf{Content:} "Click: https://paypal-secure.xyz/login"
 \end{block}
-
-\vspace{0.3cm}
-\textbf{System Analysis Process:}
-
-\begin{enumerate}
-    \item \textbf{URL Extracted:} https://paypal-secure.xyz/login
-    \item \textbf{Threat Database Check:} 
-    \begin{itemize}
-        \item \xmark\ NOT found in PhishTank
-        \item \xmark\ NOT found in URLhaus
-        \item \cmark\ URL is new - needs risk calculation
-    \end{itemize}
-    \item \textbf{Risk Scoring:}
-    \begin{itemize}
-        \item Liveness: 35 pts (site is online)
-        \item Recency: 25 pts (domain seen today)
-        \item Domain Age: 20 pts (created 3 days ago)
-        \item TLD: 10 pts (.xyz = suspicious)
-        \item Keywords: 10 pts ("paypal", "secure", "login")
-        \item \textbf{Total: 100/100 - CRITICAL RISK}
-    \end{itemize}
-\end{enumerate}
 \end{frame}
 
-\begin{frame}{Example: Dashboard Alert}
-\textbf{What Security Team Sees:}
+\begin{frame}{Analysis Process - Step 1}
+\textbf{URL Extraction:}
+
+https://paypal-secure.xyz/login
 
 \vspace{0.3cm}
-\begin{center}
-\fbox{\begin{minipage}{0.9\textwidth}
-\textbf{Email Monitoring Dashboard}
-
-\vspace{0.3cm}
-\textcolor{criticalred}{\Large $\blacktriangledown$ CRITICAL RISK EMAIL DETECTED}
-
-\vspace{0.3cm}
-\begin{tabular}{ll}
-\textbf{Risk Score:} & \textcolor{criticalred}{\textbf{100/100 - CRITICAL}} \\
-\textbf{From:} & security-alert@paypal-verify.com \\
-\textbf{Subject:} & Account Suspended - Immediate Action Required \\
-\textbf{URLs Found:} & 1 \\
-\textbf{Threat Matches:} & 0 (but high-risk indicators) \\
-\end{tabular}
-
-\vspace{0.3cm}
-\textbf{URL Analysis:}
+\textbf{Threat Database Check:}
 \begin{itemize}
-    \item \textcolor{criticalred}{\textbf{CRITICAL (100)}} https://paypal-secure.xyz/login
-    \item Domain: paypal-secure.xyz
-    \item Age: 3 days old
-    \item Location: Unknown hosting
-    \item SSL: Yes (but doesn't verify legitimacy)
+    \item \xmark\ NOT found in PhishTank
+    \item \xmark\ NOT found in URLhaus
+    \item \cmark\ URL is new - needs risk calculation
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Analysis Process - Step 2}
+\textbf{Risk Scoring Calculation:}
+\begin{itemize}
+    \item Liveness: 35 pts (site is online)
+    \item Recency: 25 pts (domain seen today)
+    \item Domain Age: 20 pts (created 3 days ago)
+    \item TLD: 10 pts (.xyz = suspicious)
+    \item Keywords: 10 pts ("paypal", "secure", "login")
 \end{itemize}
 
 \vspace{0.3cm}
-\textcolor{criticalred}{$\blacktriangledown$ \textbf{Recommendation: BLOCK this email and URL immediately}}
+\begin{alertblock}{Result}
+\textbf{Total: 100/100 - CRITICAL RISK}
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{Dashboard Example: Email Details View}
+\small
+\textbf{What You See When You Click An Email:}
+
+\vspace{0.2cm}
+\begin{center}
+\scriptsize
+\fbox{\begin{minipage}{0.9\textwidth}
+\small
+\textbf{Email Monitoring Dashboard - Email Details}
+
+\vspace{0.1cm}
+\scriptsize
+\textbf{Email Info:}
+\begin{itemize}
+    \item \textbf{From:} sender@example.com | \textbf{Subject:} "Check this link"
+    \item \textbf{Risk:} \textcolor{criticalred}{\textbf{95/100}} | \textbf{URLs:} 1 | \textbf{Threats:} 0
+\end{itemize}
+
+\vspace{0.05cm}
+\textbf{URLs Found:}
+
+\scriptsize
+\begin{tabular}{ll}
+\toprule
+\textbf{Risk} & \textbf{URL} \\
+\midrule
+\textcolor{criticalred}{95} & suspicious.zip/verify \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.05cm}
+\textbf{Enrichment Data:}
+\begin{itemize}
+    \item \scriptsize Domain: suspicious.zip | TLD: .zip | IP: 93.184.216.34
+    \item \scriptsize Country: US | ASN: AS15133 | Created: 2 days ago
+    \item \scriptsize SSL: Yes | HTTP: 200 (online)
+\end{itemize}
 \end{minipage}}
 \end{center}
 \end{frame}
 
-\begin{frame}{Example: Legitimate Email (Low Risk)}
-\textbf{Comparison: Safe Email}
-
-\vspace{0.3cm}
-\begin{exampleblock}{Email Received}
-\textbf{From:} noreply@github.com\\
-\textbf{Subject:} "New repository starred"\\
-\textbf{URL Found:} https://github.com/user/repository
-\end{exampleblock}
-
-\vspace{0.3cm}
-\textbf{Risk Scoring:}
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Factor} & \textbf{Score} & \textbf{Reason} \\
-\midrule
-Liveness & 35 pts & Site is online \\
-Recency & 5 pts & Not recently reported \\
-Domain Age & 5 pts & Domain from 2008 (established) \\
-TLD & 5 pts & .com (common) \\
-Keywords & 0 pts & No suspicious words \\
-\midrule
-\textbf{Total} & \textbf{50/100} & \textcolor{mediumyellow}{\textbf{MEDIUM}} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.3cm}
-\textcolor{lowgreen}{\textbf{Result:}} Likely safe - normal processing. No alert needed.
-\end{frame}
-
-% ============================================================================
-% SECTION 8: ROI & BUSINESS VALUE
-% ============================================================================
-\section{Business Value \& ROI}
-
-\begin{frame}{Return on Investment}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Cost Savings:}
-\begin{itemize}
-    \item \textbf{Manual Review:}
-    \begin{itemize}
-        \item 100 emails/day × 2 min each = 3.3 hours
-        \item \$50/hour analyst × 3.3 hours = \$165/day
-        \item \textbf{\$60,000/year} in labor costs
-    \end{itemize}
-    \vspace{0.3cm}
-    \item \textbf{Automated System:}
-    \begin{itemize}
-        \item \$0 licensing (open-source)
-        \item Minimal hardware (\$500 server)
-        \item \textbf{99\% cost reduction}
-    \end{itemize}
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Risk Mitigation:}
-\begin{itemize}
-    \item \textbf{Prevent breaches:}
-    \begin{itemize}
-        \item Average breach: \$4.91M
-        \item Phishing detection prevents 90\%
-        \item \textbf{Potential savings: \$4.4M+}
-    \end{itemize}
-    \vspace{0.3cm}
-    \item \textbf{Business continuity:}
-    \begin{itemize}
-        \item No downtime from incidents
-        \item Protected reputation
-        \item Regulatory compliance
-    \end{itemize}
-\end{itemize}
-\end{columns}
-
-\vspace{0.5cm}
-\begin{center}
-\Large\textbf{ROI: Payback in less than 1 week}
-\end{center}
-\end{frame}
-
-\begin{frame}{Operational Benefits}
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Metric} & \textbf{Before} & \textbf{After} \\
-\midrule
-Time to detect threat & 24-72 hours & \textcolor{lowgreen}{\textbf{< 5 minutes}} \\
-Manual effort required & 3-4 hours/day & \textcolor{lowgreen}{\textbf{0 hours}} \\
-False negative rate & 15-20\% & \textcolor{lowgreen}{\textbf{< 2\%}} \\
-Coverage & Sample checking & \textcolor{lowgreen}{\textbf{100\% of emails}} \\
-Analyst expertise needed & High & \textcolor{lowgreen}{\textbf{None}} \\
-24/7 monitoring & No & \textcolor{lowgreen}{\textbf{Yes}} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5cm}
-\begin{block}{Key Benefits}
-\begin{itemize}
-    \item \textbf{Speed:} Instant threat detection vs hours/days of manual review
-    \item \textbf{Coverage:} Every email analyzed vs random sampling
-    \item \textbf{Accuracy:} Data-driven scoring vs human error
-    \item \textbf{Scale:} Handles growing email volume without adding staff
-\end{itemize}
-\end{block}
-\end{frame}
-
-% ============================================================================
-% SECTION 9: SECURITY & COMPLIANCE
-% ============================================================================
-\section{Security \& Compliance}
-
-\begin{frame}{Security \& Privacy Considerations}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Data Security:}
-\begin{itemize}
-    \item \cmark\ Email content stored locally
-    \item \cmark\ No data sent to third parties
-    \item \cmark\ Encrypted database option
-    \item \cmark\ Read-only Gmail access
-    \item \cmark\ OAuth 2.0 authentication (no passwords)
-\end{itemize}
-
-\vspace{0.3cm}
-\textbf{Privacy:}
-\begin{itemize}
-    \item Only URL metadata analyzed
-    \item Email content not shared externally
-    \item Configurable retention policies
-    \item GDPR-compliant data handling
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Compliance Support:}
-\begin{itemize}
-    \item \textbf{SOC 2:} Audit trail for all threats
-    \item \textbf{GDPR:} Data minimization, local storage
-    \item \textbf{HIPAA:} Secure email handling
-    \item \textbf{ISO 27001:} Risk management documentation
-\end{itemize}
-
-\vspace{0.3cm}
-\textbf{Audit Features:}
-\begin{itemize}
-    \item Complete email analysis history
-    \item Timestamped risk assessments
-    \item Exportable reports (CSV, STIX)
-    \item Detailed threat attribution
-\end{itemize}
-\end{columns}
-
-\vspace{0.3cm}
-\begin{block}{Enterprise-Ready}
-Designed with security and compliance as core principles, not afterthoughts.
-\end{block}
-\end{frame}
-
-% ============================================================================
-% SECTION 10: RESULTS & METRICS
-% ============================================================================
-\section{Results \& Performance Metrics}
-
-\begin{frame}{Proven Results}
-\textbf{Detection Performance:}
-
-\vspace{0.3cm}
-\begin{center}
-\begin{tabular}{lc}
-\toprule
-\textbf{Metric} & \textbf{Value} \\
-\midrule
-Threat database size & 50,000+ URLs \\
-Threats detected & 98\% accuracy \\
-False positive rate & < 2\% \\
-Processing speed & < 10 seconds per email \\
-Database refresh & Every 6 hours \\
-Uptime & 99.9\% \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5cm}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Speed Improvements:}
-\begin{itemize}
-    \item Manual review: 2-3 min/email
-    \item Automated: < 10 sec/email
-    \item \textbf{20x faster}
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Scale:}
-\begin{itemize}
-    \item Tested with 1,000 emails/day
-    \item Processes 100+ URLs/minute
-    \item Handles enterprise volume
-\end{itemize}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Real-World Usage Statistics}
-\textbf{Deployment Example: Medium-Sized Organization (500 employees)}
-
-\vspace{0.5cm}
-\begin{center}
-\begin{tabular}{lr}
-\toprule
-\textbf{Metric (30 Days)} & \textbf{Count} \\
-\midrule
-Total emails analyzed & 12,450 \\
-URLs extracted & 89,230 \\
-Critical risk emails detected & 47 \\
-High risk emails detected & 234 \\
-Known threats blocked & 15 \\
-New threats identified & 32 \\
-Time saved (vs manual) & 415 hours \\
-\textbf{Estimated breaches prevented} & \textbf{3-5} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.5cm}
-\begin{alertblock}{Impact}
-\textbf{3-5 potential breaches prevented per month} at \textbf{\$4.91M average cost each} = \\
-\textbf{Potential savings: \$14.7M - \$24.5M per month}
-\end{alertblock}
-\end{frame}
-
-% ============================================================================
-% SECTION 11: COMPARISON
-% ============================================================================
-\section{Comparison with Alternatives}
-
-\begin{frame}{How We Compare}
-\begin{center}
+\begin{frame}{Email List View in Dashboard}
+\vspace{-0.4cm}
 \small
-\begin{tabular}{lcccc}
+\textbf{Main Email Monitoring Tab:}
+
+\vspace{0.0cm}
+\begin{center}
+\scriptsize
+\begin{tabular}{lllcc}
 \toprule
-\textbf{Feature} & \textbf{Our System} & \textbf{Spam Filter} & \textbf{Enterprise} & \textbf{Manual} \\
+\textbf{Risk} & \textbf{From} & \textbf{Subject} & \textbf{URLs} & \textbf{Threats} \\
 \midrule
-Threat intelligence & \cmark & \xmark & \cmark & \xmark \\
-Real-time detection & \cmark & Partial & \cmark & \xmark \\
-URL analysis & \cmark & \xmark & \cmark & Partial \\
-Risk scoring & \cmark & \xmark & \cmark & Subjective \\
-Visual dashboard & \cmark & \xmark & \cmark & \xmark \\
-100\% coverage & \cmark & Partial & \cmark & \xmark \\
-24/7 operation & \cmark & \cmark & \cmark & \xmark \\
-\midrule
-\textbf{Cost/year} & \textbf{\$0} & \$500 & \$50,000+ & \$60,000 \\
-\textbf{Setup time} & \textbf{5 min} & 30 min & Weeks & N/A \\
-\textbf{Training} & \textbf{None} & Minimal & Extensive & Extensive \\
+\textcolor{criticalred}{100} & phish@bad.com & Verify Account & 1 & 1 \\
+\textcolor{criticalred}{95} & spam@evil.zip & Click Here & 1 & 0 \\
+\textcolor{highorange}{75} & ads@promo.xyz & Special Offer & 3 & 0 \\
+\textcolor{mediumyellow}{55} & news@site.com & Newsletter & 5 & 0 \\
+\textcolor{lowgreen}{45} & github.com & PR Review & 2 & 0 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
+\vspace{0.1cm}
+\scriptsize
+\textbf{Features:} Filter ($\geq$70), Sort (risk/date), Limit (25/50/100/200), Click for details
+
+\textbf{Threat Badge:} URLs matching external feeds
+\end{frame}
+
+% ============================================================================
+% SECTION 8: LIMITATIONS & EVALUATION
+% ============================================================================
+\section{Limitations \& Evaluation}
+
+\begin{frame}{Current Limitations}
+\vspace*{-0.3cm}
+\scriptsize
+\textbf{1. WHOIS Coverage (31\%):} Privacy protection limits domain age data; using alternative signals
+
+\vspace{0.1cm}
+\textbf{2. Gmail-Only:} OAuth 2.0 only; no Exchange/Office 365; IMAP/SMTP planned
+
+\vspace{0.1cm}
+\textbf{3. No Content Analysis:} Metadata focus only; visual phishing not detected
+\end{frame}
+
+\begin{frame}{Performance \& Accuracy}
+\small
+\textbf{Database Statistics:}
+\begin{itemize}
+    \scriptsize
+    \item \textbf{Total:} 55,225 unique URLs
+    \item \textbf{OpenPhish:} 1,200 | \textbf{PhishTank:} 51,825 | \textbf{URLhaus:} 2,317
+    \item \textbf{Enrichment:} 41 fields per URL
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Scoring Accuracy:}
+\begin{itemize}
+    \scriptsize
+    \item \textbf{Validated:} Tested on known phishing samples
+    \item \textbf{False Positives:} Some legitimate sites flagged (.xyz + "login")
+    \item \textbf{Recommendation:} Manual review for 70-84 scores
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Processing Speed:}
+\begin{itemize}
+    \scriptsize
+    \item \textbf{Email:} 5-10 sec (parallel processing)
+    \item \textbf{Enrichment:} Variable (WHOIS limits)
+\end{itemize}
+\end{frame}
+
+% ============================================================================
+% SECTION 9: SECURITY & PRIVACY
+% ============================================================================
+\section{Security \& Privacy}
+
+\begin{frame}{Data Security}
+\vspace{-0.4cm}
+\small
+\begin{itemize}
+    \scriptsize
+    \setlength\itemsep{-0.15em}
+    \item \cmark\ All data stored locally (SQLite)
+    \item \cmark\ No external data sharing
+    \item \cmark\ Gmail read-only access (OAuth 2.0)
+    \item \cmark\ No password storage
+    \item \cmark\ Token-based authentication
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Privacy Considerations}
+\small
+\begin{itemize}
+    \item Email content stored locally only
+    \item URL metadata sent to enrichment services (WHOIS, DNS)
+    \item GeoIP databases included (offline, MaxMind GeoLite2)
+    \item No analytics or telemetry
+\end{itemize}
+
 \vspace{0.3cm}
-\begin{block}{Competitive Advantage}
-Enterprise-grade threat detection at \textbf{zero licensing cost}, with deployment in minutes instead of weeks.
+\begin{block}{Note: Research Prototype}
+\small
+For production use, additional security hardening recommended.
 \end{block}
 \end{frame}
 
-% ============================================================================
-% SECTION 12: FUTURE ENHANCEMENTS
-% ============================================================================
-\section{Roadmap \& Future Enhancements}
-
-\begin{frame}{Future Development}
-\textbf{Planned Enhancements:}
-
-\vspace{0.3cm}
-\begin{enumerate}
-    \item \textbf{Machine Learning Integration}
-    \begin{itemize}
-        \item Train on historical data
-        \item Improve accuracy to 99\%+
-        \item Detect zero-day threats
-        \item Timeline: 3-6 months
-    \end{itemize}
-    
-    \vspace{0.3cm}
-    \item \textbf{Multi-Platform Support}
-    \begin{itemize}
-        \item Office 365 integration
-        \item Exchange Server support
-        \item IMAP/SMTP for any email provider
-        \item Timeline: 6-12 months
-    \end{itemize}
-    
-    \vspace{0.3cm}
-    \item \textbf{Advanced Features}
-    \begin{itemize}
-        \item Visual phishing detection (screenshot analysis)
-        \item Campaign clustering (identify coordinated attacks)
-        \item Automated response (quarantine/delete)
-        \item SIEM integration (Splunk, Elastic)
-        \item Timeline: 12-18 months
-    \end{itemize}
-\end{enumerate}
+\begin{frame}{Export Standards}
+\small
+\begin{itemize}
+    \item \textbf{STIX 2.1:} Standard threat intelligence format
+    \item \textbf{CSV:} Simple data export
+    \item \textbf{JSON API:} REST endpoints (FastAPI)
+\end{itemize}
 \end{frame}
 
 % ============================================================================
-% SECTION 13: IMPLEMENTATION
+% SECTION 10: CONTRIBUTIONS & LESSONS LEARNED
 % ============================================================================
-\section{Implementation Plan}
+\section{Contributions \& Lessons Learned}
 
-\begin{frame}{Deployment Timeline}
-\textbf{Recommended Rollout: 2-Week Implementation}
+\begin{frame}{Key Contributions}
+\small
+\textbf{1. Unified Threat Intelligence:} 3 feeds (55K URLs), 41 enrichment fields
+
+\textbf{2. Multi-Factor Risk Scoring:} Novel algorithm (liveness + recency + domain age + TLD + keywords)
+
+\textbf{3. Async Processing:} Parallel URL enrichment (10x faster)
+
+\textbf{4. Standards:} STIX 2.1 export, REST API (FastAPI)
+
+\textbf{5. Open Source:} Complete codebase with documentation
+\end{frame}
+
+\begin{frame}{Lessons Learned}
+\small
+\textbf{Technical Challenges:}
+\begin{itemize}
+    \item \textbf{WHOIS Rate Limiting:} Slow enrichment
+    \begin{itemize}
+        \scriptsize
+        \item Solution: Batch processing + caching
+    \end{itemize}
+    \item \textbf{Data Quality:} 69\% privacy protected
+    \begin{itemize}
+        \scriptsize
+        \item Solution: Multiple sources, fallback scoring
+    \end{itemize}
+    \item \textbf{URL Normalization:} Complex edge cases
+    \begin{itemize}
+        \scriptsize
+        \item Solution: Lowercase, remove ports, strip slashes
+    \end{itemize}
+\end{itemize}
 
 \vspace{0.3cm}
-\begin{center}
-\begin{tabular}{clp{6cm}}
-\toprule
-\textbf{Week} & \textbf{Phase} & \textbf{Activities} \\
-\midrule
-\textbf{Week 1} & \textbf{Pilot} & 
+\textbf{Design Decisions:}
 \begin{itemize}
-    \item Deploy on test system
-    \item Monitor 1-2 Gmail accounts
-    \item Security team training (2 hours)
-    \item Verify accuracy and tune thresholds
-    \item Document any customizations needed
-\end{itemize} \\[0.5cm]
+    \scriptsize
+    \item \textbf{SQLite vs PostgreSQL:} SQLite sufficient for prototype
+    \item \textbf{Sync vs Async:} Async critical for performance
+    \item \textbf{Streamlit vs React:} Streamlit faster, includes caching
+\end{itemize}
+\end{frame}
 
-\textbf{Week 2} & \textbf{Production} & 
+
+
+% ============================================================================
+% SECTION 11: FUTURE WORK
+% ============================================================================
+\section{Future Work \& Extensions}
+
+\begin{frame}{Future: Machine Learning}
+\vspace{-0.2cm}
+\small
+\textbf{Machine Learning Classification}
 \begin{itemize}
-    \item Deploy to production server
-    \item Connect all email accounts
-    \item Set up dashboard access for team
-    \item Configure alerting rules
-    \item Begin 24/7 monitoring
-\end{itemize} \\
+    \scriptsize
+    \setlength\itemsep{-0.1em}
+    \item Train on 41 enriched features + URL analysis
+    \item Algorithms: Random Forest, Gradient Boosting
+    \item Expected: Higher accuracy than rules
+    \item Challenge: Needs labeled training data
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Future: Multi-Platform \& Content Analysis}
+\small
+\textbf{Multi-Platform Support}
+\begin{itemize}
+    \item Current: Gmail only
+    \item Add: Office 365, Exchange, IMAP/SMTP
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Content-Based Detection}
+\begin{itemize}
+    \item Visual: Screenshot analysis, OCR
+    \item HTML: Form detection, obfuscation
+    \item Similarity matching to legitimate pages
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Future: Campaign Clustering}
+\small
+\textbf{Campaign Clustering}
+\begin{itemize}
+    \item Group threats by: ASN, registrar, nameservers
+    \item Identify coordinated attacks
+    \item Track shared infrastructure
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Scalability Improvements}
+\small
+\textbf{Current Architecture Limitations:}
+\begin{center}
+\scriptsize
+\begin{tabular}{llll}
+\toprule
+\textbf{Scale} & \textbf{URLs} & \textbf{Current} & \textbf{Solution} \\
+\midrule
+Small & <100K & 15-18h & SQLite OK \\
+Medium & 100K-1M & 6-8d & PostgreSQL \\
+ & & WHOIS limits & + workers \\
+Large & 1M+ & Weeks & Kubernetes \\
+ & & & + Kafka \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\vspace{0.3cm}
-\begin{block}{Go-Live Checklist}
-\cmark\ Server provisioned \quad
-\cmark\ Gmail authenticated \quad
-\cmark\ Team trained \quad
-\cmark\ Dashboard accessible
-\end{block}
+\vspace{0.2cm}
+\scriptsize
+\textbf{Also:} Real-time WebSocket, SIEM export, Firewall API, Time-series, Passive DNS, Domain reputation
 \end{frame}
 
-\begin{frame}{Resource Requirements}
-\textbf{What You Need:}
 
-\vspace{0.3cm}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Infrastructure:}
-\begin{itemize}
-    \item \textbf{Server:}
-    \begin{itemize}
-        \item 4 CPU cores
-        \item 8 GB RAM
-        \item 10 GB disk space
-        \item Linux or Windows
-    \end{itemize}
-    \item \textbf{Network:}
-    \begin{itemize}
-        \item Internet access
-        \item Ports 8000, 8501 (internal)
-    \end{itemize}
-\end{itemize}
 
-\vspace{0.3cm}
-\textbf{Cost:} \$500-1,000 one-time (hardware) or \$50/month (cloud VM)
 
-\column{0.5\textwidth}
-\textbf{Team:}
-\begin{itemize}
-    \item \textbf{Setup:}
-    \begin{itemize}
-        \item 1 IT person × 2 hours
-        \item No specialized skills needed
-    \end{itemize}
-    \item \textbf{Operations:}
-    \begin{itemize}
-        \item Security analyst monitors dashboard
-        \item 15-30 min/day review time
-        \item Existing team, no new hires
-    \end{itemize}
-    \item \textbf{Maintenance:}
-    \begin{itemize}
-        \item System auto-updates threats
-        \item Minimal admin overhead
-    \end{itemize}
-\end{itemize}
-\end{columns}
 
-\vspace{0.3cm}
-\begin{center}
-\textbf{Total Investment: < \$2,000 (setup + first year)}
-\end{center}
+% ============================================================================
+% SECTION 11: FUTURE WORK
+% ============================================================================
+\section{Future Work \& Possible Enhancements}
+
+\begin{frame}{Future: Machine Learning}
+\small
+\textbf{Current:} Rule-based (5 factors) \quad \textbf{Goal:} ML for better accuracy
+
+\vspace{0.15cm}
+\scriptsize
+\textbf{Approach:} 41 fields + URL patterns | Random Forest, Gradient Boosting, Neural Nets | 55K threats + legitimate URLs | Expected 95-97\% accuracy
+
+\vspace{0.15cm}
+\textbf{Challenges:} Labeled dataset needed, overfitting risk, model drift
+
+\vspace{0.15cm}
+\textbf{Implementation:} scikit-learn, TensorFlow/PyTorch, 80/20 split
 \end{frame}
 
-% ============================================================================
-% SECTION 14: SUPPORT & TRAINING
-% ============================================================================
-\section{Training \& Support}
+\begin{frame}{Future: Visual Phishing Detection}
+\small
+\textbf{Goal:} Detect fake login pages by appearance
 
-\begin{frame}{User Training (2 Hours Total)}
-\textbf{Training Modules:}
+\vspace{0.2cm}
+\textbf{Approach:}
+\begin{itemize}
+    \item Screenshot capture via automated browser
+    \item Compare to database of real brand pages
+    \item OCR text extraction
+    \item Similarity matching
+\end{itemize}
+\end{frame}
 
-\vspace{0.3cm}
+\begin{frame}{Visual Detection: Use Cases}
+\small
+\textbf{Use Cases:}
+\begin{itemize}
+    \item Fake PayPal/banking login pages
+    \item Microsoft/Google credential harvesting
+    \item Similar logos/colors to known brands
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Challenges:}
+\begin{itemize}
+    \item Resource-intensive
+    \item Sites may block automated browsers
+    \item Pages may look different based on JavaScript
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Future Enhancement 3: Multi-Platform Email Support}
+\small
+\textbf{Current:} Gmail-only via OAuth 2.0
+
+\vspace{0.2cm}
+\textbf{Goal:} Support any provider (Outlook, Yahoo, corporate)
+
+\vspace{0.2cm}
+\textbf{Implementation Options:}
+
 \begin{enumerate}
-    \item \textbf{Dashboard Basics (30 min)}
+    \scriptsize
+    \item \textbf{IMAP/SMTP Protocol}
     \begin{itemize}
-        \item Opening the dashboard
-        \item Understanding risk levels
-        \item Reading email list
-        \item Filtering by risk score
+        \scriptsize
+        \item Universal support
+        \item Challenge: Less reliable than modern APIs
     \end{itemize}
     
-    \item \textbf{Threat Investigation (45 min)}
+    \item \textbf{Microsoft Graph API}
     \begin{itemize}
-        \item Clicking on high-risk emails
-        \item Reviewing URL analysis
-        \item Understanding threat feed matches
-        \item Exporting data for reports
+        \scriptsize
+        \item Office 365 / Outlook.com
+        \item Challenge: Different API structure
     \end{itemize}
     
-    \item \textbf{Response Procedures (30 min)}
+    \item \textbf{Email Forwarding}
     \begin{itemize}
-        \item When to escalate
-        \item Blocking malicious senders
-        \item Notifying affected users
-        \item Documenting incidents
-    \end{itemize}
-    
-    \item \textbf{Practice Scenarios (15 min)}
-    \begin{itemize}
-        \item Hands-on with test emails
-        \item Q\&A session
+        \scriptsize
+        \item User forwards suspicious emails
+        \item Challenge: Manual action required
     \end{itemize}
 \end{enumerate}
+
+\vspace{0.1cm}
+\scriptsize
+\textbf{Benefit:} Corporate deployment (Exchange, Office 365)
 \end{frame}
 
-\begin{frame}{Documentation \& Support}
-\textbf{Comprehensive Documentation Included:}
+\begin{frame}{Future: Campaign Clustering - Approach}
+\vspace{-0.5cm}
+\scriptsize
+\textbf{Goal:} Group related threats
+\vspace{-0.4cm}
 
-\vspace{0.3cm}
+\textbf{Find connections by:}
 \begin{itemize}
-    \item \textbf{Quick Start Guide} - 4 essential commands
-    \item \textbf{Email Dashboard Guide} - Complete dashboard walkthrough (359 lines)
-    \item \textbf{Demo Mode Guide} - Automated monitoring setup (250 lines)
-    \item \textbf{Technical Report} - Full system documentation (1000+ lines)
-    \item \textbf{Troubleshooting} - Common issues and solutions
-    \item \textbf{Video Tutorials} - (optional: can be created)
+    \scriptsize
+    \setlength\itemsep{-0.25em}
+    \item \textbf{Infrastructure:} Same IP, registrar, DNS, SSL cert
+    \item \textbf{Pattern:} Similar domains, same target brand
+    \item \textbf{Timing:} Simultaneous URL bursts
 \end{itemize}
-
-\vspace{0.5cm}
-\textbf{Built-in Help:}
-\begin{itemize}
-    \item Interactive menu: \texttt{python start.py}
-    \item Command help: \texttt{python run.py --help}
-    \item Diagnostic tools: \texttt{python utils/debug\_emails.py}
-\end{itemize}
-
-\vspace{0.3cm}
-\begin{block}{Self-Service Support}
-Clear documentation and intuitive interface minimize support needs. Most questions answered in Quick Start Guide.
-\end{block}
+\vspace{-0.2cm}
 \end{frame}
 
-% ============================================================================
-% SECTION 15: CONCLUSION
-% ============================================================================
-\section{Conclusion \& Next Steps}
-
-\begin{frame}{Why Choose This Solution?}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Technical Excellence:}
+\begin{frame}{Campaign Clustering - Output}
+\small
+\textbf{Output:}
 \begin{itemize}
-    \item \cmark\ Proven threat detection (98\% accuracy)
-    \item \cmark\ Fast processing (< 10 sec/email)
-    \item \cmark\ Scalable architecture
-    \item \cmark\ Modern technology stack
-    \item \cmark\ Continuous threat updates
+    \item Campaign reports: "12 URLs from same attacker"
+    \item Visual relationship graphs
+    \item Early warning for new campaign URLs
 \end{itemize}
-
-\vspace{0.5cm}
-\textbf{Business Value:}
-\begin{itemize}
-    \item \cmark\ \$60K/year labor savings
-    \item \cmark\ \$4.4M+ breach prevention
-    \item \cmark\ 20x faster than manual review
-    \item \cmark\ Zero licensing costs
-    \item \cmark\ < 1 week payback period
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Operational Excellence:}
-\begin{itemize}
-    \item \cmark\ 5-minute deployment
-    \item \cmark\ No training required
-    \item \cmark\ 100\% email coverage
-    \item \cmark\ 24/7 automated monitoring
-    \item \cmark\ Minimal maintenance
-\end{itemize}
-
-\vspace{0.5cm}
-\textbf{Risk Management:}
-\begin{itemize}
-    \item \cmark\ Compliance support (SOC 2, GDPR)
-    \item \cmark\ Complete audit trail
-    \item \cmark\ Secure by design
-    \item \cmark\ Local data storage
-    \item \cmark\ No vendor lock-in
-\end{itemize}
-\end{columns}
 \end{frame}
 
-\begin{frame}{Next Steps: Get Started Today}
-\textbf{Immediate Actions:}
+\begin{frame}{Future: Real-Time Threat Updates}
+\small
+\textbf{Current:} Periodic updates (6h) \quad \textbf{Goal:} Instant detection
 
-\vspace{0.5cm}
+\vspace{0.15cm}
+\textbf{How It Works:}
+\begin{itemize}
+    \scriptsize
+    \item \textbf{Live:} Feeds push instantly
+    \item \textbf{Re-scan:} Check old emails vs new threats
+    \item \textbf{Alerts:} Dashboard notifications
+\end{itemize}
+
+\vspace{0.15cm}
+\textbf{Example:}
 \begin{enumerate}
-    \item \textbf{Trial Deployment (This Week)}
+    \scriptsize
+    \item 9:00 AM: Email scored Low (45/100)
+    \item 10:30 AM: URL added to PhishTank
+    \item System re-scans → Critical (100/100)
+    \item Dashboard: "Safe email now flagged"
+\end{enumerate}
+
+\vspace{0.05cm}
+\scriptsize
+\textbf{Technical:} Background worker, DB-triggered re-scoring, push notifications
+\end{frame}
+
+\begin{frame}{Future Enhancement 6: Security Tool Integration}
+\vspace{-0.2cm}
+\scriptsize
+\textbf{Goal:} Connect to enterprise platforms
+
+\vspace{0.1cm}
+\textbf{Integration Points:}
+
+\begin{enumerate}
+    \scriptsize
+    \setlength\itemsep{-0.1em}
+    \item \textbf{SIEM} (Security Info \& Event Mgmt)
     \begin{itemize}
-        \item Run \texttt{python run.py demo --once}
-        \item Test with 5-10 emails
-        \item Review dashboard interface
-        \item Verify threat detection
-        \item \textbf{Time required: 30 minutes}
+        \scriptsize
+        \setlength\itemsep{-0.1em}
+        \item Examples: Splunk, Elastic, QRadar
+        \item Central dashboard, event correlation
     \end{itemize}
     
-    \vspace{0.3cm}
-    \item \textbf{Pilot Program (Week 1)}
+    \item \textbf{SOAR} (Orchestration \& Automated Response)
     \begin{itemize}
-        \item Deploy to 2-3 email accounts
-        \item Monitor for 1 week
-        \item Gather metrics and feedback
-        \item Tune sensitivity if needed
+        \scriptsize
+        \item Examples: Cortex XSOAR, Palo Alto
+        \item Auto playbooks: quarantine, block
     \end{itemize}
     
-    \vspace{0.3cm}
-    \item \textbf{Full Rollout (Week 2)}
+    \item \textbf{Threat Intel Platforms}
     \begin{itemize}
-        \item Connect all email accounts
-        \item Train security team
-        \item Begin 24/7 monitoring
-        \item Establish response procedures
+        \scriptsize
+        \item Examples: MISP, OpenCTI
+        \item Share indicators, import intel
     \end{itemize}
 \end{enumerate}
+
+\vspace{0.1cm}
+\scriptsize
+\textbf{Benefit:} Automated response vs manual
 \end{frame}
 
-\begin{frame}{Contact \& Resources}
+\begin{frame}{Future: Subdomain Tracking}
+\vspace*{-0.4cm}
+\scriptsize
+\textbf{Current:} Subdomains inherit parent age
+
+\vspace{0.05cm}
+\textbf{Problem:} \texttt{blog.example.com} (parent 2010) vs \texttt{phish.example.com} (today) - both scored as old
+
+\vspace{0.05cm}
+\textbf{Solution:} Passive DNS (SecurityTrails, PassiveTotal, VirusTotal) - Track subdomain first seen
+
+\vspace{0.1cm}
+\textbf{Special Case:} Free hosting (\texttt{user.github.io}) already handled via platform scoring
+\end{frame}
+
+\begin{frame}{Future: Large Scale Deployments}
+\vspace*{-0.4cm}
+\scriptsize
+\textbf{Current:} 55K URLs, <1K emails/day \quad \textbf{Goal:} Millions of URLs/emails
+
+\vspace{0.1cm}
+\textbf{1. Database:} SQLite → PostgreSQL, indexes, archiving
+
+\textbf{2. Distributed:} Kubernetes, Kafka, Redis caching
+
+\textbf{3. Optimization:} Batch requests, DNS cache, rate limits
+
+\vspace{0.1cm}
 \begin{center}
-\Large{\textbf{Ready to Secure Your Email?}}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Current} & \textbf{After} \\
+\midrule
+URLs & 55K & 5M+ \\
+Architecture & Single & Distributed \\
+Speed & 1/sec & 100+/sec \\
+\bottomrule
+\end{tabular}
 \end{center}
+\end{frame}
 
-\vspace{0.5cm}
-\begin{columns}[T]
-\column{0.5\textwidth}
-\textbf{Quick Start:}
-\begin{itemize}
-    \item GitHub Repository:\\
-    \small{\texttt{github.com/[username]/phishing-detector}}
-    \item Documentation:\\
-    See \texttt{docs/README.md}
-    \item Interactive Demo:\\
-    \texttt{python run.py demo --once}
-\end{itemize}
+% ============================================================================
+% SECTION 12: CONCLUSION
+% ============================================================================
+\section{Conclusion}
 
-\column{0.5\textwidth}
-\textbf{Support Resources:}
+\begin{frame}{Summary: What We Built}
+\small
 \begin{itemize}
-    \item Quick Start Guide
-    \item Video tutorials (optional)
-    \item Email support
-    \item Community forum
+    \item Prototype phishing detection system
+    \item 55K threat URLs from 3 feeds
+    \item 41-field enrichment
+    \item Multi-factor risk scoring (0-100)
+    \item Gmail integration
+    \item Interactive dashboard
 \end{itemize}
-\end{columns}
+\end{frame}
 
-\vspace{0.5cm}
-\begin{block}{Questions?}
+\begin{frame}{Key Achievements}
+\small
 \begin{itemize}
-    \item Technical questions: See Technical Report
-    \item Business inquiries: Contact information
-    \item Implementation support: Available
+    \item \cmark\ Unified threat intelligence (open-source)
+    \item \cmark\ Async enrichment (10x speedup)
+    \item \cmark\ Standards export (STIX 2.1)
+    \item \cmark\ Fast processing (5-10 sec/email)
+    \item \cmark\ Deployable prototype
 \end{itemize}
-\end{block}
 
 \vspace{0.3cm}
-\begin{center}
-\large{\textbf{Protect your organization from phishing threats today.}}
-\end{center}
+\textbf{Limitations Acknowledged:}
+\begin{itemize}
+    \item WHOIS coverage (31\%), Gmail-only, no content analysis
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Try It Yourself}
+\vspace*{-0.4cm}
+\small
+\textbf{Quick Start:} \texttt{\$ python run.py demo --once}
+
+\vspace{0.1cm}
+\scriptsize
+\textbf{Resources:}
+\begin{itemize}
+    \scriptsize
+    \item \textbf{GitHub:} github.com/XHCFS/phishing-detector
+    \item \textbf{Docs:} \texttt{README.md}, \texttt{QUICK\_START.md}
+\end{itemize}
+
+\vspace{0.1cm}
+\scriptsize
+\textbf{Requirements:} Python 3.11+, 4GB RAM, 2GB disk, Gmail account, 15-20 min setup
 \end{frame}
 
 % ============================================================================
@@ -1215,13 +1195,12 @@ Clear documentation and intuitive interface minimize support needs. Most questio
 \Large{Questions?}
 
 \vspace{1.5cm}
-\large{$\bigodot$ \texttt{github.com/[username]/phishing-detector}}
-
-\vspace{0.5cm}
-\large{$\bigstar$ Contact: [your-email]}
+\large{\texttt{github.com/XHCFS/phishing-detector}}
 
 \vspace{1cm}
-\normalsize{\textcolor{criticalred}{$\blacktriangledown$} \textbf{Automated Email Security for Modern Organizations}}
+\normalsize{\textbf{Research Prototype:} Automated Phishing Detection System}\\
+\small{University of Science and Technology Zewail City}\\
+\small{October 2025}
 \end{center}
 \end{frame}
 
