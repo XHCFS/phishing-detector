@@ -33,6 +33,12 @@ DB_DIR = Path(__file__).resolve().parents[1] / 'database'
 DB_DIR.mkdir(parents=True, exist_ok=True)
 THREAT_FEEDS_DB_PATH = DB_DIR / 'threat_feeds.db'
 
+# Email path: only PhishTank + OpenPhish list hits auto-match as “known phishing URL”.
+# URLhaus is malware-oriented; those rows are not used for instant high-risk email matches.
+EMAIL_PHISHING_FEED_MATCHES = frozenset({'phishtank', 'openphish'})
+FEED_LIST_SCORE_CAP = 90
+FEED_LIST_SCORE_FLOOR = 70
+
 
 def decode_mime(s: str) -> str:
     """Decode MIME encoded headers."""
@@ -244,9 +250,11 @@ def update_email_risk_score(email_id: str, risk_score: int = None):
 
 def calculate_and_set_url_risk_score(url_id: int):
     """Calculate and update the risk score for a URL in enriched_threats.
-    
-    - If source_feed != 'email': risk_score = 100
-    - If source_feed = 'email': calculate using scoring.py criteria
+
+    - PhishTank / OpenPhish (list sources): bounded elevated score (no flat 100) for
+      safer email deployment; still clearly “high” when heuristics agree.
+    - URLhaus / other non-email feeds: same heuristic path as email (no auto-block).
+    - Email-sourced rows: full scoring.calculate_risk_score only.
     """
     con = sqlite3.connect(str(THREAT_FEEDS_DB_PATH))
     cur = con.cursor()
@@ -265,20 +273,20 @@ def calculate_and_set_url_risk_score(url_id: int):
     
     url, source_feed, http_status_code, online_status, last_seen, creation_date, tld = row
     
-    # Determine risk score
-    if source_feed != 'email':
-        # External threat feed - always maximum risk
-        risk_score = 100
+    base = scoring.calculate_risk_score(
+        url=url,
+        http_status_code=http_status_code,
+        online_status=online_status,
+        last_seen=last_seen,
+        creation_date=creation_date,
+        tld=tld,
+    )
+    if source_feed == 'email':
+        risk_score = base
+    elif source_feed in EMAIL_PHISHING_FEED_MATCHES:
+        risk_score = min(FEED_LIST_SCORE_CAP, max(FEED_LIST_SCORE_FLOOR, base))
     else:
-        # Email source - calculate using scoring criteria
-        risk_score = scoring.calculate_risk_score(
-            url=url,
-            http_status_code=http_status_code,
-            online_status=online_status,
-            last_seen=last_seen,
-            creation_date=creation_date,
-            tld=tld
-        )
+        risk_score = base
     
     # Update the risk score
     cur.execute('UPDATE enriched_threats SET risk_score = ? WHERE id = ?', (risk_score, url_id))
@@ -468,8 +476,8 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
     Logic flow:
     1. Extract URLs from email
     2. For each URL:
-       - Check if URL exists in enriched_threats with source_feed != 'email'
-         - If yes: mark email as risk_score=100 (known threat)
+       - Check if URL exists as PhishTank/OpenPhish list hit (not URLhaus)
+         - If yes: bounded high risk (see calculate_and_set_url_risk_score)
        - If not found in non-email threats:
          - Check if URL exists in enriched_threats with source_feed='email'
            - If yes: link email to existing URL
@@ -520,22 +528,20 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
             normalized_url = normalize_url(url)
             print(f'\n  Processing: {normalized_url}')
             
-            # STEP 1: Check if URL exists with source_feed != 'email'
-            # If YES: Mark as 100, link it, DON'T overwrite
+            # STEP 1: PhishTank / OpenPhish list hit only (URLhaus excluded for email FP safety)
             cur.execute(
-                'SELECT id, source_feed, risk_score FROM enriched_threats WHERE url = ? AND source_feed != ?',
-                (normalized_url, 'email')
+                '''SELECT id, source_feed, risk_score FROM enriched_threats
+                   WHERE url = ? AND source_feed IN ('phishtank', 'openphish')''',
+                (normalized_url,),
             )
             threat_match = cur.fetchone()
             
             if threat_match:
                 url_id, source_feed, existing_risk = threat_match
-                print(f'    ✓ FOUND in threat feed: {source_feed}')
-                print(f'    → Setting risk_score = 100 (external threat)')
-                
-                # Set risk score to 100 for external threats
-                calculate_and_set_url_risk_score(url_id)
-                url_risk_scores.append(100)
+                print(f'    ✓ FOUND in phishing feed: {source_feed}')
+                risk_score = calculate_and_set_url_risk_score(url_id)
+                print(f'    → List-match risk_score = {risk_score} (bounded, not auto-100)')
+                url_risk_scores.append(risk_score if risk_score is not None else 0)
                 
                 # Link to email (don't overwrite the URL entry!)
                 link_email_to_url(email_id, url_id)
@@ -631,12 +637,7 @@ async def enrich_urls_for_email_async(email_id: str, max_per_email: int = 50, ma
                         print(f'    ⚠️  {url} was added during enrichment (source: {source_feed})')
                         con.close()
                         
-                        if source_feed != 'email':
-                            # It's a threat feed URL now!
-                            risk_score = 100
-                            calculate_and_set_url_risk_score(url_id)
-                        else:
-                            risk_score = calculate_and_set_url_risk_score(url_id)
+                        risk_score = calculate_and_set_url_risk_score(url_id)
                         
                         url_risk_scores.append(risk_score if risk_score else 0)
                         link_email_to_url(email_id, url_id)

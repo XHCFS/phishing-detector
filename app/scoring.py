@@ -10,7 +10,7 @@ Components:
 - Recency (0-25): Days since last seen
 - Domain Age (0-20): Days since domain creation
 - TLD/Platform (0-10): TLD type and hosting platform
-- Keywords (0-10): Suspicious keywords in URL
+- Keywords (0-5): Suspicious URL tokens (capped; inbox-safe)
 
 Usage:
     from app.scoring import calculate_risk_score, get_risk_level
@@ -134,19 +134,24 @@ def calculate_tld_platform_score(url: str, tld: Optional[str] = None) -> int:
 
 
 def calculate_keywords_score(url: str) -> int:
-    """Calculate suspicious keywords score (0-10 points)."""
+    """Suspicious URL token score (0–5), capped to reduce inbox false positives.
+
+    Legitimate mail often contains ``login``, ``secure``, brand names, etc.; those
+    no longer dominate the score. Stronger tokens (``wallet``, ``invoice``, …)
+    contribute more but the total keyword slice stays small.
+    """
     url_lower = url.lower()
-    
-    suspicious_keywords = [
-        'login', 'verify', 'secure', 'update', 'invoice', 'mfa',
-        'password', 'wallet', 'bank', 'microsoft', 'office365', 'att'
-    ]
-    
-    for keyword in suspicious_keywords:
-        if keyword in url_lower:
-            return 10
-    
-    return 0
+    score = 0
+    for kw in ('wallet', 'invoice', 'mfa'):
+        if kw in url_lower:
+            score += 2
+    for kw in ('password', 'bank', 'verify'):
+        if kw in url_lower:
+            score += 1
+    fragile = ('login', 'secure', 'update', 'microsoft', 'office365', 'att')
+    if any(k in url_lower for k in fragile):
+        score += 1
+    return min(5, score)
 
 
 def calculate_risk_score(

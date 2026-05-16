@@ -259,7 +259,7 @@ def calculate_risk_scores(path: Path = DB_PATH):
         
         +
         
-        -- 5) URL Keywords Score (0-10 pts)
+        -- 5) URL Keywords Score (0-3 pts; reduced for benign-mail false positives)
         CASE 
             WHEN LOWER(url) LIKE '%login%' OR
                  LOWER(url) LIKE '%verify%' OR
@@ -272,7 +272,7 @@ def calculate_risk_scores(path: Path = DB_PATH):
                  LOWER(url) LIKE '%bank%' OR
                  LOWER(url) LIKE '%microsoft%' OR
                  LOWER(url) LIKE '%office365%' OR
-                 LOWER(url) LIKE '%att%' THEN 10
+                 LOWER(url) LIKE '%att%' THEN 3
             ELSE 0
         END
     );

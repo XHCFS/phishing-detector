@@ -2,12 +2,21 @@
 """
 populate_threat_feeds.py (updated)
 
-Populates 'threat_feeds.db' (or a provided --db path) from public feeds:
-- OpenPhish Feed (free)
-- PhishTank online-valid (free; stable origin -> redirects to signed CDN)
-- URLhaus recent URLs (free; v1 API requires POST)
+Populates the raw SQLite DB from **continuously refreshed** public feeds:
 
-Idempotent: uses INSERT OR IGNORE / UPSERT. Safe to run multiple times/day.
+- **OpenPhish** `feed.txt` — full current list of active phishing URLs (updated on a
+  short cadence; re-fetch often for fresh targets). Each run **replaces** the local
+  OpenPhish table with this snapshot so rows not in the latest feed are dropped.
+
+- **PhishTank** `online-valid.json(.gz|.bz2)` — only entries PhishTank still classifies
+  as **verified phishing and still online** at crawl time. Each run **replaces** the
+  local PhishTank table with that snapshot. Rows with `online != yes` are skipped.
+
+- **URLhaus** `urls/recent/` — high-churn malware URLs (requires API key); optional.
+
+Run `grabrawdata` on a schedule (e.g. hourly) so enrichment and ML pipelines see
+URLs that are still present on these live lists.
+
 Skips OpenPhish Archival (license required).
 """
 
@@ -184,24 +193,22 @@ def extract_domain(u: str) -> Optional[str]:
         return None
 
 def load_openphish_feed(con: sqlite3.Connection, url: str = OPENPHISH_FEED_URL) -> int:
+    """Replace local OpenPhish rows with the latest feed snapshot (URLs still listed)."""
     r = http_get(url)
     items = [ln.strip() for ln in r.text.splitlines() if ln.strip() and not ln.startswith("#")]
     rows = [(u, extract_domain(u)) for u in items]
 
     cur = con.cursor()
-    cur.execute("SELECT COUNT(*) FROM openphish_feed")
-    before = cur.fetchone()[0]
-
-    cur.executemany(
-        "INSERT OR IGNORE INTO openphish_feed (url, domain) VALUES (?, ?)",
-        rows
-    )
+    cur.execute("BEGIN IMMEDIATE")
+    cur.execute("DELETE FROM openphish_feed")
+    if rows:
+        cur.executemany(
+            "INSERT INTO openphish_feed (url, domain) VALUES (?, ?)",
+            rows,
+        )
     con.commit()
-
-    cur.execute("SELECT COUNT(*) FROM openphish_feed")
-    after = cur.fetchone()[0]
     cur.close()
-    return after - before
+    return len(rows)
 
 def fetch_phishtank_json() -> list:
     # Try multiple PhishTank endpoints in order of preference, prioritizing compressed JSON
@@ -306,34 +313,48 @@ def map_phishtank_json_obj(o: Dict[str, Any]) -> tuple:
     return (phish_id, url, phish_detail_url, submission_time, verified, verification_time, online, target,
             ip_address, cidr_block, announcing_network, rir, detail_time)
 
+
+def _phishtank_feed_obj_is_still_online(o: Dict[str, Any]) -> bool:
+    """PhishTank 'online-valid' should only include live phish; keep strict yes-only."""
+    v = o.get("online")
+    if v is True or v == "yes":
+        return True
+    if v is False or v == "no":
+        return False
+    return False
+
+
 def load_phishtank_archival(con: sqlite3.Connection) -> int:
+    """
+    Replace local PhishTank rows with the latest **online-valid** snapshot only.
+    URLs that dropped off PhishTank's current list are removed so downstream
+    enrichment does not train on stale 'was online once' rows.
+    """
     data = fetch_phishtank_json()
-    rows = [map_phishtank_json_obj(o) for o in data]
+    rows = [
+        r for r in (
+            map_phishtank_json_obj(o)
+            for o in data
+            if _phishtank_feed_obj_is_still_online(o)
+        )
+        if r[0] is not None and r[1]
+    ]
     cur = con.cursor()
-    cur.execute("SELECT COUNT(*) FROM phishtank_archival"); before = cur.fetchone()[0]
-    cur.executemany("""
-      INSERT INTO phishtank_archival
-      (phish_id,url,phish_detail_url,submission_time,verified,verification_time,online,target,
-       ip_address,cidr_block,announcing_network,rir,detail_time)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(phish_id) DO UPDATE SET
-        url=excluded.url,
-        phish_detail_url=excluded.phish_detail_url,
-        submission_time=excluded.submission_time,
-        verified=excluded.verified,
-        verification_time=excluded.verification_time,
-        online=excluded.online,
-        target=excluded.target,
-        ip_address=excluded.ip_address,
-        cidr_block=excluded.cidr_block,
-        announcing_network=excluded.announcing_network,
-        rir=excluded.rir,
-        detail_time=excluded.detail_time
-    """, rows)
+    cur.execute("BEGIN IMMEDIATE")
+    cur.execute("DELETE FROM phishtank_archival")
+    if rows:
+        cur.executemany(
+            """
+            INSERT INTO phishtank_archival
+            (phish_id,url,phish_detail_url,submission_time,verified,verification_time,online,target,
+             ip_address,cidr_block,announcing_network,rir,detail_time)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            rows,
+        )
     con.commit()
-    cur.execute("SELECT COUNT(*) FROM phishtank_archival"); after = cur.fetchone()[0]
     cur.close()
-    return max(0, after - before)
+    return len(rows)
 
 
 def _safe_int(x) -> Optional[int]:
@@ -436,7 +457,7 @@ def main():
 
     if not args.skip_openphish:
         try:
-            totals["openphish_feed_inserted"] = load_openphish_feed(con)
+            totals["openphish_feed_snapshot_rows"] = load_openphish_feed(con)
         except Exception as e:
             totals["openphish_feed_error"] = str(e)
 
@@ -444,7 +465,7 @@ def main():
 
     if not args.skip_phishtank:
         try:
-            totals["phishtank_upserted"] = load_phishtank_archival(con)
+            totals["phishtank_snapshot_rows"] = load_phishtank_archival(con)
         except Exception as e:
             totals["phishtank_error"] = str(e)
 

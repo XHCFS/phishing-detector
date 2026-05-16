@@ -209,6 +209,10 @@ __marimo__/
 # Database
 *.db
 
+# Large ML dataset exports (regenerate with utils/build_ml_dataset.py)
+data/ml_dataset/*.csv
+data/
+
 # Demo mode trigger file
 .demo_refresh_trigger
 
@@ -221,3 +225,18 @@ __marimo__/
 *.toc
 *.vrb
 *.synctex.gz
+
+# Packaged model archives (reference zip is fusion_detector_v1.9.1.zip)
+*.tar.gz
+fusion_detector_v*.zip
+!fusion_detector_v1.9.1.zip
+
+# Large reference datasets
+top-1m.csv
+
+# Claude Code session files
+.claude/
+
+# Utility/scratch scripts (not part of the deliverable)
+utils/
+scripts/

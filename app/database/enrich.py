@@ -2,7 +2,9 @@
 """
 Enrichment pipeline for threat feeds data.
 
-Reads URLs from threat_feeds_raw.db and enriches them with:
+Reads URLs from threat_feeds_raw.db (OpenPhish + PhishTank **live feed snapshots**
+from `grabrawdata`: regularly re-fetch so rows match URLs still listed as active /
+online-valid) and enriches them with:
 - WHOIS information (domain registration, registrar, dates, nameservers)
 - GeoIP data (country, region, city, coordinates)
 - ASN/ISP information (network owner, ISP name)
@@ -22,6 +24,7 @@ PERFORMANCE OPTIMIZATIONS:
 import ssl
 import socket
 import sqlite3
+import sys
 import time
 import argparse
 import asyncio
@@ -56,20 +59,39 @@ logging.getLogger('aiohttp.access').propagate = False
 # Set global socket timeout for DNS operations (performance boost)
 socket.setdefaulttimeout(0.5)  # Even more aggressive!
 
+# Repo root (parent of app/) for install hints — enrich lives in app/database/.
+_ENRICH_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REQUIREMENTS_FILE = _ENRICH_REPO_ROOT / "requirements.txt"
+
 # Optional dependencies - graceful degradation if not available
 try:
     import whois
     WHOIS_AVAILABLE = True
+    # python-whois logs every socket/DNS failure at ERROR — floods the console on bulk enrich.
+    for _whois_log in ("whois", "whois.whois"):
+        _wl = logging.getLogger(_whois_log)
+        _wl.setLevel(logging.CRITICAL)
+        _wl.propagate = False
 except ImportError:
     WHOIS_AVAILABLE = False
-    print("Warning: python-whois not installed. WHOIS lookups disabled.")
-    print("Install with: pip install python-whois")
+    print("Warning: python-whois not installed. WHOIS lookups disabled.", file=sys.stderr)
+    print(
+        f"  Fix for this interpreter ({sys.executable}):\n"
+        f"    {sys.executable} -m pip install python-whois\n"
+        f"  Or from repo root: {sys.executable} -m pip install -r {_REQUIREMENTS_FILE}",
+        file=sys.stderr,
+    )
 
 try:
     import requests
     REQUESTS_AVAILABLE = True
+    try:
+        from urllib3.util.retry import Retry
+    except ImportError:
+        Retry = None  # type: ignore[misc, assignment]
 except ImportError:
     REQUESTS_AVAILABLE = False
+    Retry = None  # type: ignore[misc, assignment]
     print("Warning: requests not installed. HTTP checks disabled.")
     print("Install with: pip install requests")
 
@@ -102,8 +124,13 @@ try:
     IPWHOIS_AVAILABLE = True
 except ImportError:
     IPWHOIS_AVAILABLE = False
-    print("Warning: ipwhois not installed. ASN lookups disabled.")
-    print("Install with: pip install ipwhois")
+    print("Warning: ipwhois not installed. ASN / RDAP lookups disabled.", file=sys.stderr)
+    print(
+        f"  Fix for this interpreter ({sys.executable}):\n"
+        f"    {sys.executable} -m pip install ipwhois\n"
+        f"  Or from repo root: {sys.executable} -m pip install -r {_REQUIREMENTS_FILE}",
+        file=sys.stderr,
+    )
 
 # Configure logging (WARNING level for performance - no INFO/DEBUG spam)
 logging.basicConfig(
@@ -127,12 +154,19 @@ GEOIP_CITY_DB = DB_DIR / "GeoLite2-City.mmdb"
 GEOIP_ASN_DB = DB_DIR / "GeoLite2-ASN.mmdb"
 GEOIP_COUNTRY_DB = DB_DIR / "GeoLite2-Country.mmdb"
 
-# Rate limiting and timeouts (HYPER-AGGRESSIVE - LUDICROUS SPEED)
-WHOIS_DELAY = 0.0  # No delays
-DNS_TIMEOUT = 0.5  # Very aggressive
-SSL_TIMEOUT = 1.0  # Very aggressive
-HTTP_TIMEOUT = 1.5  # Very aggressive
-MAX_RETRIES = 0  # No retries
+# Timeouts: slightly relaxed vs old “ultra aggressive” defaults to improve
+# WHOIS/SSL/page fill rates; HTTP session still uses connection pooling + retries.
+WHOIS_DELAY = 0.0
+DNS_TIMEOUT = 0.5
+SSL_TIMEOUT = 2.5
+HTTP_TIMEOUT = 2.5  # HEAD / light probes
+PAGE_CONTENT_TIMEOUT = 5.0  # GET body for title (slower endpoints)
+MAX_RETRIES = 0  # legacy name; HTTP retries configured on Session adapter
+
+_DEFAULT_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 # Concurrency settings (MAXIMUM PARALLELISM)
 MAX_CONCURRENT_URLS = 100  # Doubled for max throughput
@@ -178,20 +212,71 @@ def get_geoip_country_reader():
 
 
 def get_http_session():
-    """Get cached HTTP session with aggressive connection pooling."""
+    """Get cached HTTP session with connection pooling and limited retries."""
     global _http_session
     if _http_session is None and REQUESTS_AVAILABLE:
         _http_session = requests.Session()
-        # ULTRA AGGRESSIVE connection pooling for max performance
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=500,  # 5x increase
-            pool_maxsize=500,  # 5x increase
-            max_retries=0,
-            pool_block=False  # Don't block when pool full
-        )
-        _http_session.mount('http://', adapter)
-        _http_session.mount('https://', adapter)
+        if Retry is not None:
+            retry = Retry(
+                total=3,
+                connect=3,
+                read=2,
+                backoff_factor=0.25,
+                status_forcelist=(429, 502, 503, 504),
+                allowed_methods=("GET", "HEAD"),
+            )
+            adapter = requests.adapters.HTTPAdapter(
+                max_retries=retry,
+                pool_connections=200,
+                pool_maxsize=200,
+                pool_block=False,
+            )
+        else:
+            adapter = requests.adapters.HTTPAdapter(
+                pool_connections=200,
+                pool_maxsize=200,
+                max_retries=0,
+                pool_block=False,
+            )
+        _http_session.mount("http://", adapter)
+        _http_session.mount("https://", adapter)
     return _http_session
+
+
+def normalize_openssl_asn1_time(value: Optional[str]) -> Optional[str]:
+    """
+    Convert OpenSSL ASN.1 time from ssl.SSLSocket.getpeercert() to ISO 8601 (UTC).
+
+    Examples: 'May  6 12:00:00 2025 GMT', 'Jan  1 00:00:00 2024 GMT'
+    """
+    if not value or not isinstance(value, str):
+        return None
+    s = re.sub(r"\s+", " ", value.strip())
+    for fmt in ("%b %d %H:%M:%S %Y %Z", "%b %d %H:%M:%S %Y GMT"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        except ValueError:
+            continue
+    return value
+
+
+def _flatten_whois_name_servers(val: Any) -> Optional[str]:
+    if val is None:
+        return None
+    if isinstance(val, str):
+        return val.strip() or None
+    parts: List[str] = []
+    if isinstance(val, list):
+        for item in val:
+            if isinstance(item, str) and item.strip():
+                parts.append(item.strip())
+            elif isinstance(item, (list, tuple)) and item:
+                parts.append(str(item[0]).strip())
+        return ",".join(parts) if parts else None
+    return str(val).strip() or None
 
 
 class EnrichmentData:
@@ -360,46 +445,65 @@ def extract_base_domain(domain: str) -> str:
     return domain
 
 
-def get_whois_info(domain: str) -> Dict[str, Any]:
-    """Get WHOIS information for domain (extracts base domain first)."""
+def _whois_lookup_once(domain: str) -> Dict[str, Any]:
+    """Single WHOIS query; returns empty dict on failure."""
     if not WHOIS_AVAILABLE or not domain:
         return {}
-
     try:
-        # Extract base domain for WHOIS (subdomain WHOIS queries fail)
         base_domain = extract_base_domain(domain)
-        
-        # No artificial delay - thread pool provides natural rate limiting
         w = whois.whois(base_domain)
 
-        # Helper to extract first date from list or single value
-        def extract_date(date_val):
+        def extract_date(date_val: Any) -> Optional[str]:
             if date_val is None:
                 return None
             if isinstance(date_val, list):
                 date_val = date_val[0] if date_val else None
             if isinstance(date_val, datetime):
-                return date_val.isoformat()
-            return str(date_val) if date_val else None
+                return date_val.replace(tzinfo=timezone.utc).isoformat()
+            if isinstance(date_val, str) and date_val.strip():
+                return date_val.strip()
+            return None
 
-        # Helper to extract first string from list
-        def extract_string(val):
+        def extract_string(val: Any) -> Optional[str]:
             if val is None:
                 return None
             if isinstance(val, list):
                 val = val[0] if val else None
-            return str(val) if val else None
+            return str(val).strip() if val else None
 
         return {
-            'registrar': extract_string(w.registrar),
-            'creation_date': extract_date(w.creation_date),
-            'expiry_date': extract_date(w.expiration_date),
-            'updated_date': extract_date(w.updated_date),
-            'name_servers': ','.join(
-                w.name_servers) if w.name_servers else None,
+            "registrar": extract_string(w.registrar),
+            "creation_date": extract_date(w.creation_date),
+            "expiry_date": extract_date(w.expiration_date),
+            "updated_date": extract_date(w.updated_date),
+            "name_servers": _flatten_whois_name_servers(w.name_servers),
         }
     except Exception:
         return {}
+
+
+def get_whois_info(domain: str) -> Dict[str, Any]:
+    """Get WHOIS information for domain (retries + fallback query)."""
+    if not WHOIS_AVAILABLE or not domain:
+        return {}
+
+    base_domain = extract_base_domain(domain)
+    candidates = [base_domain]
+    if domain.strip().lower() != base_domain.strip().lower():
+        candidates.append(domain.strip())
+
+    last: Dict[str, Any] = {}
+    for qdom in candidates:
+        for attempt in range(3):
+            info = _whois_lookup_once(qdom)
+            if info and any(
+                info.get(k) for k in ("registrar", "creation_date", "name_servers")
+            ):
+                return info
+            last = info or last
+            if attempt < 2:
+                time.sleep(0.45)
+    return last
 
 
 def get_geoip_info(ip_address: str) -> Dict[str, Any]:
@@ -565,8 +669,12 @@ def get_ssl_info(domain: str) -> Dict[str, Any]:
                     'ssl_enabled': 'yes',
                     'cert_issuer': issuer_str,
                     'cert_subject': subject_str,
-                    'cert_valid_from': cert.get('notBefore'),
-                    'cert_valid_to': cert.get('notAfter'),
+                    'cert_valid_from': normalize_openssl_asn1_time(
+                        cert.get('notBefore')
+                    ),
+                    'cert_valid_to': normalize_openssl_asn1_time(
+                        cert.get('notAfter')
+                    ),
                     'cert_serial': cert.get('serialNumber'),
                 }
     except (socket.timeout, ssl.SSLError, Exception):
@@ -599,22 +707,24 @@ def get_page_content(url: str) -> Dict[str, Any]:
         session = get_http_session()
         if not session:
             return {}
-        
+
         response = session.get(
             url,
-            timeout=HTTP_TIMEOUT,
+            timeout=PAGE_CONTENT_TIMEOUT,
             allow_redirects=True,
-            verify=False,  # Skip SSL verification for phishing sites
-            headers={'User-Agent': 'Mozilla/5.0'}
+            verify=False,
+            headers={
+                'User-Agent': _DEFAULT_BROWSER_UA,
+                'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            },
         )
 
-        result = {
+        result: Dict[str, Any] = {
             'online': 'yes' if response.status_code < 400 else 'no',
-            'http_status_code': response.status_code
+            'http_status_code': response.status_code,
         }
 
-        # ULTRA FAST: Use regex instead of BS4 (10x faster for simple parsing)
-        # BeautifulSoup is overkill for just extracting title and lang
         title_match = _TITLE_REGEX.search(response.text)
         if title_match:
             result['page_title'] = title_match.group(1).strip()[:200]
@@ -626,25 +736,29 @@ def get_page_content(url: str) -> Dict[str, Any]:
         return result
 
     except requests.exceptions.SSLError:
-        # Try without SSL
         try:
-            url = url.replace('https://', 'http://')
-            response = requests.get(
-                url, timeout=HTTP_TIMEOUT, allow_redirects=True,
-                headers={'User-Agent': 'Mozilla/5.0'}
+            url_http = url.replace('https://', 'http://')
+            response = session.get(
+                url_http,
+                timeout=PAGE_CONTENT_TIMEOUT,
+                allow_redirects=True,
+                headers={'User-Agent': _DEFAULT_BROWSER_UA},
             )
             return {
                 'online': 'yes' if response.status_code < 400 else 'no',
-                'http_status_code': response.status_code
+                'http_status_code': response.status_code,
+                '_fetch_error': 'ssl_fallback_http',
             }
+        except requests.exceptions.Timeout:
+            return {'online': 'unknown', 'http_status_code': None, '_fetch_error': 'timeout_after_ssl'}
         except Exception:
-            return {'online': 'no', 'http_status_code': None}
+            return {'online': 'no', 'http_status_code': None, '_fetch_error': 'ssl_fallback_failed'}
     except requests.exceptions.Timeout:
-        return {'online': 'unknown', 'http_status_code': None}
+        return {'online': 'unknown', 'http_status_code': None, '_fetch_error': 'timeout'}
     except requests.exceptions.ConnectionError:
-        return {'online': 'no', 'http_status_code': None}
+        return {'online': 'no', 'http_status_code': None, '_fetch_error': 'connection_error'}
     except Exception:
-        return {'online': 'unknown', 'http_status_code': None}
+        return {'online': 'unknown', 'http_status_code': None, '_fetch_error': 'error'}
 
 
 def check_online_status(url: str) -> Tuple[Optional[str], Optional[int]]:
@@ -831,6 +945,11 @@ def enrich_url(
             data.http_status_code = page_info.get('http_status_code')
             data.page_title = page_info.get('page_title')
             data.page_language = page_info.get('page_language')
+            err = page_info.get('_fetch_error')
+            if err:
+                data.notes = (
+                    (data.notes + ';') if data.notes else ''
+                ) + f'page_fetch:{err}'
 
     # Fallback lightweight online check if still no status
     if not data.online:
@@ -848,6 +967,8 @@ def enrich_url(
             data.threat_type = 'phishing'
         elif source_feed == 'urlhaus':
             data.threat_type = data.threat_type or 'malware'
+        elif source_feed == 'tranco_ml_benign':
+            data.threat_type = 'benign'
 
     # Try to detect language from page title if language is missing
     if not data.page_language and data.page_title:
@@ -1097,6 +1218,11 @@ async def enrich_url_async(
                                     result.get('http_status_code'))
             data.page_title = result.get('page_title')
             data.page_language = result.get('page_language')
+            err = result.get('_fetch_error')
+            if err:
+                data.notes = (
+                    (data.notes + ';') if data.notes else ''
+                ) + f'page_fetch:{err}'
         
         elif task_type == 'geoip' and result:
             debug_logger.debug(f"enrich_url_async: Processing GeoIP result for {data.domain}: {result}")
@@ -1135,7 +1261,9 @@ async def enrich_url_async(
             data.threat_type = 'phishing'
         elif source_feed == 'urlhaus':
             data.threat_type = 'malware'
-    
+        elif source_feed == 'tranco_ml_benign':
+            data.threat_type = 'benign'
+
     # Fill country_name from country code if missing
     if data.country and not data.country_name:
         country_names = {
@@ -1183,10 +1311,34 @@ def get_raw_data(
     con.row_factory = sqlite3.Row
     cur = con.cursor()
 
-    results = []
+    results: List[Tuple[str, str, Optional[str], Dict[str, Any]]] = []
 
-    # Get OpenPhish feed data
-    cur.execute("SELECT url, domain FROM openphish_feed")
+    # ML benign (Tranco / manual) — **first** so PhishTank/OpenPhish/URLhaus rows that share
+    # the same URL overwrite via INSERT OR REPLACE and keep threat semantics.
+    try:
+        cur.execute("""
+            SELECT id, url, tranco_rank, stratum, benign_source
+            FROM ml_benign_urls
+        """)
+        for row in cur.fetchall():
+            results.append(
+                (
+                    row["url"],
+                    "tranco_ml_benign",
+                    str(row["id"]),
+                    {
+                        "tranco_rank": row["tranco_rank"],
+                        "stratum": row["stratum"],
+                        "benign_source": row["benign_source"],
+                    },
+                )
+            )
+    except sqlite3.OperationalError:
+        pass
+
+    # OpenPhish: table is refreshed to match the live feed snapshot (see grabrawdata).
+    # Prefer higher row id (later lines in the feed insert batch) when sampling.
+    cur.execute("SELECT url, domain FROM openphish_feed ORDER BY id DESC")
     for row in cur.fetchall():
         results.append((
             row['url'],
@@ -1195,11 +1347,13 @@ def get_raw_data(
             {'domain': row['domain']}
         ))
 
-    # Get PhishTank data
+    # PhishTank: only **online-valid** snapshot rows (online = yes) kept in raw DB.
     cur.execute("""
         SELECT phish_id, url, online, target, ip_address,
                cidr_block, announcing_network, rir
         FROM phishtank_archival
+        WHERE online = 'yes'
+        ORDER BY submission_time DESC
     """)
     for row in cur.fetchall():
         # Parse ASN from announcing_network if it's a number
@@ -1427,12 +1581,12 @@ def insert_enriched_data_batch(
                             END
                     END
                     +
-                    -- URL Keywords Score (0-10 pts)
+                    -- URL Keywords Score (0-3 pts; reduced for benign-mail false positives)
                     CASE 
                         WHEN LOWER(url) LIKE '%login%' OR LOWER(url) LIKE '%verify%' OR LOWER(url) LIKE '%secure%' OR
                              LOWER(url) LIKE '%update%' OR LOWER(url) LIKE '%invoice%' OR LOWER(url) LIKE '%mfa%' OR
                              LOWER(url) LIKE '%password%' OR LOWER(url) LIKE '%wallet%' OR LOWER(url) LIKE '%bank%' OR
-                             LOWER(url) LIKE '%microsoft%' OR LOWER(url) LIKE '%office365%' OR LOWER(url) LIKE '%att%' THEN 10
+                             LOWER(url) LIKE '%microsoft%' OR LOWER(url) LIKE '%office365%' OR LOWER(url) LIKE '%att%' THEN 3
                         ELSE 0
                     END
                 )
@@ -1673,7 +1827,7 @@ def main():
     )
     parser.add_argument(
         '--source',
-        choices=['openphish', 'phishtank', 'urlhaus'],
+        choices=['openphish', 'phishtank', 'urlhaus', 'tranco_ml_benign'],
         help='Process only specific source feed'
     )
     parser.add_argument(
@@ -1709,11 +1863,27 @@ def main():
         help='Disable page content fetching for speed (loses title/language)'
     )
     parser.add_argument(
+        '--fast-ml',
+        action='store_true',
+        help=(
+            'Bulk-ML shortcut: same as --disable-whois --disable-ipwhois '
+            '--disable-page-content. Per URL, wall time is dominated by the '
+            'slowest parallel step (usually WHOIS port 43, then full GET page fetch, '
+            'then RDAP/IPWhois); this keeps DNS/SSL/GeoIP-MMDB/HTTP HEAD-style probes. '
+            'Does not apply to --legacy (async mode only).'
+        ),
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug logging to file (enrichment_debug.log)'
     )
     args = parser.parse_args()
+
+    if args.fast_ml:
+        args.disable_whois = True
+        args.disable_ipwhois = True
+        args.disable_page_content = True
 
     raw_db = Path(args.raw_db)
     enriched_db = Path(args.enriched_db)
@@ -1740,7 +1910,11 @@ def main():
 
     # Warn about missing optional dependencies
     if not WHOIS_AVAILABLE:
-        logger.warning("WHOIS lookups disabled - install python-whois")
+        logger.warning(
+            "WHOIS disabled for %s — install: %s -m pip install python-whois",
+            sys.executable,
+            sys.executable,
+        )
     if not GEOIP_AVAILABLE:
         logger.warning("GeoIP lookups disabled - install geoip2")
         logger.info(
@@ -1748,7 +1922,11 @@ def main():
             "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data"
         )
     if not IPWHOIS_AVAILABLE:
-        logger.warning("IPWhois lookups disabled - install ipwhois")
+        logger.warning(
+            "IPWhois disabled for %s — install: %s -m pip install ipwhois",
+            sys.executable,
+            sys.executable,
+        )
     if not REQUESTS_AVAILABLE:
         logger.warning("HTTP checks disabled - install requests")
 
@@ -1817,18 +1995,47 @@ def main():
         print(f"Thread pool: {max_workers} workers")
         print(f"Batch insert: {BATCH_INSERT_SIZE} records")
         print(f"Total URLs: {len(raw_urls)}")
-        
-        # Show what's enabled/disabled
-        whois_enabled = not args.disable_whois
-        ipwhois_enabled = not args.disable_ipwhois
-        page_enabled = not args.disable_page_content
-        print("\nFeatures:")
-        whois_status = '✓ enabled' if whois_enabled else '✗ disabled'
-        ipwhois_status = '✓ enabled' if ipwhois_enabled else '✗ disabled'
-        page_status = '✓ enabled' if page_enabled else '✗ disabled'
+        if args.fast_ml:
+            print(
+                "Mode: --fast-ml (skips WHOIS, IPWhois RDAP, full page GET — "
+                "largest wall-clock wins removed; GeoIP/SSL/online still run)"
+            )
+
+        # Show what's enabled (CLI flags) vs actually available (optional deps)
+        whois_flag = not args.disable_whois
+        ipwhois_flag = not args.disable_ipwhois
+        page_flag = not args.disable_page_content
+        print("\nFeatures (flag vs runtime):")
+        if whois_flag and WHOIS_AVAILABLE:
+            whois_status = "✓ active (python-whois)"
+        elif not whois_flag:
+            whois_status = "✗ off (--disable-whois)"
+        else:
+            whois_status = "✗ unavailable (pip install python-whois)"
+        if ipwhois_flag and IPWHOIS_AVAILABLE:
+            ipwhois_status = "✓ active (ipwhois)"
+        elif not ipwhois_flag:
+            ipwhois_status = "✗ off (--disable-ipwhois)"
+        else:
+            ipwhois_status = "✗ unavailable (pip install ipwhois)"
+        page_status = "✓ enabled" if page_flag else "✗ disabled (--disable-page-content)"
         print(f"   • WHOIS:        {whois_status}")
         print(f"   • IPWhois:      {ipwhois_status}")
         print(f"   • Page content: {page_status}")
+        if (whois_flag and not WHOIS_AVAILABLE) or (ipwhois_flag and not IPWHOIS_AVAILABLE):
+            print(f"\nThese use the Python that is running enrich:\n  {sys.executable}")
+            print("Install into that environment (examples):")
+            print(f"  {sys.executable} -m pip install python-whois ipwhois")
+            if _REQUIREMENTS_FILE.is_file():
+                print(
+                    f"  {sys.executable} -m pip install -r {_REQUIREMENTS_FILE}"
+                )
+            print(
+                "If pip refuses (e.g. Arch 'externally-managed-environment'), create a venv:\n"
+                f"  python3 -m venv .venv && .venv/bin/python -m pip install -r {_REQUIREMENTS_FILE}\n"
+                "Then run enrich with, for example:\n"
+                "  PYTHON=.venv/bin/python python -m app.database.enrich --skip-existing"
+            )
         print(f"{'='*60}\n")
         
         stats = {}

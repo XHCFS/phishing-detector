@@ -104,6 +104,18 @@ DDL = [
     );
     """,
 
+    # ML training: Tranco / extra benign URLs queued for the same enrichment as feeds
+    """
+    CREATE TABLE IF NOT EXISTS ml_benign_urls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT NOT NULL UNIQUE,
+        tranco_rank INTEGER,
+        stratum TEXT,
+        benign_source TEXT DEFAULT 'tranco_top1m',
+        inserted_at DATETIME DEFAULT (datetime('now'))
+    );
+    """,
+
     # Indexes for common lookups
     "CREATE INDEX IF NOT EXISTS idx_openphish_feed_domain ON openphish_feed(domain);",
     # "CREATE INDEX IF NOT EXISTS idx_openphish_archival_host ON openphish_archival(host);",
@@ -113,6 +125,7 @@ DDL = [
     "CREATE INDEX IF NOT EXISTS idx_phishtank_announcing_network ON phishtank_archival(announcing_network);",
     "CREATE INDEX IF NOT EXISTS idx_urlhaus_threat ON urlhaus_api(threat);",
     "CREATE INDEX IF NOT EXISTS idx_urlhaus_asn ON urlhaus_api(asn);",
+    "CREATE INDEX IF NOT EXISTS idx_ml_benign_urls_url ON ml_benign_urls(url);",
 ]
 
 def create_db(path: Path = DB_PATH):
