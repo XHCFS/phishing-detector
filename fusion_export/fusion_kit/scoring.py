@@ -81,28 +81,39 @@ def fusion(
     """
     Fuse URL-model and operational-model probabilities.
 
-    Default mode is ``"mean"`` — the arithmetic average. This lets the
-    operational model's confident benign signal (op_p ≈ 0) dampen a URL
-    model false-positive on a complex-but-legitimate URL, while still
-    catching phishing where the operational model is highly confident
-    (op_p ≈ 1). Use ``"max"`` only when you want either model's high
-    score to dominate regardless of the other (more aggressive, higher FPR).
+    Default mode is ``"mean"`` with asymmetric weighting:
+
+    - Normal range (op_p ≥ 0.05): arithmetic mean — 50% url_p + 50% op_p.
+    - Confident-benign range (op_p < 0.05): 15% url_p + 85% op_p.
+
+    The asymmetry matters because the URL char model scores major brand names
+    (google, paypal, amazon) very high — those n-grams appear constantly in
+    phishing URLs.  When op_p is near zero the operational model is signalling
+    with high confidence that this URL has legitimate operational properties
+    (established ASN, old domain, valid cert from a known CA, real registrar).
+    In that regime url_p is uninformative; giving it 50% weight produces false
+    positives on real google.com, amazon.com, etc.  Shifting weight to 85%
+    op_p eliminates those FPs without sacrificing detection — real phishing
+    always has elevated op_p because it lacks the benign operational profile.
+
+    Use ``"max"`` only when you want either model's high score to dominate
+    regardless of the other (more aggressive, higher FPR).
 
     ``shortener_mask``: boolean array marking URLs whose apex domain is a
-    known URL shortener (bit.ly, t.co, tinyurl.com, etc.).  For these, the
-    URL char model scores the *opaque code*, not the redirect destination —
-    its score is uninformative about destination phishing intent.  The fusion
-    weight shifts to 10% url_p + 90% op_p so the operational model's trusted-
-    domain signal dominates.  The production pipeline resolves redirects before
-    scoring, so this mask is only needed for offline/unit-test scoring where
-    redirects are not followed.
+    known URL shortener (bit.ly, t.co, tinyurl.com, etc.).  For these the
+    URL char model scores the opaque code, not the redirect destination.
+    Fusion weight shifts to 10% url_p + 90% op_p.  The production pipeline
+    resolves redirects before scoring, so this mask is only needed for
+    offline/unit-test scoring where redirects are not followed.
     """
     if op_p is None:
         return url_p
     if mode == "max":
         result = np.maximum(url_p, op_p)
     else:
-        result = 0.5 * (url_p + op_p)
+        mean = 0.5 * (url_p + op_p)
+        dampened = 0.15 * url_p + 0.85 * op_p
+        result = np.where(op_p < 0.05, dampened, mean)
     if shortener_mask is not None and op_p is not None:
         shortener_score = 0.1 * url_p + 0.9 * op_p
         result = np.where(shortener_mask, shortener_score, result)

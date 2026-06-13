@@ -1,7 +1,7 @@
 # Fusion Phishing Detector — Technical Report
 
-**Version:** 1.6.0  
-**Date:** 2026-05-15  
+**Version:** 2.0.0  
+**Date:** 2026-06-14 (v3 model update; original v1.6.0: 2026-05-15)
 **Author:** CHEX
 
 ---
@@ -562,3 +562,76 @@ A: The brand_mismatch vector demonstrates this most clearly: url_p ≈ 0.007 (UR
 
 **Q: How does it fit into the Go service?**  
 A: The Python scoring library is invoked by the Go service via subprocess (`score_batch.py`) or a gRPC wrapper. The Go service submits URLs in batches, receives TSV with `url | effective_url | url_p | op_p | deploy_p`, and makes the final verdict decision using the `deploy_p` score and configurable threshold. The `effective_url` column allows the Go service to log the resolved destination for shorteners and redirect chains.
+
+---
+
+## 15. Model Update — v3 (2026-05-18)
+
+> Full methodology, training data provenance, benchmark tables, and known-limitation analysis are in **[`MODELING_AND_EVALUATION.md`](MODELING_AND_EVALUATION.md)**.
+
+### 15.1 What Changed
+
+| Component | v1.6.0 | v3 |
+|-----------|--------|-----|
+| URL model training rows | 174,550 | 304,181 |
+| URL model base dataset | ~100K internal | 299K LegitPhish + PhiUSIIL |
+| URL model regularization | C=4.0 | C=2.0 |
+| Phishing augmentation | 109 URLs × 150 | 300 fresh OpenPhish × 10 |
+| Benign augmentation | 291 URLs × 200 | 625 URLs × 3 |
+| URL model AUC (held-out) | 0.757 (overfit) | **0.974** |
+| URL model benign FPR@0.5 | 68.2% (overfit) | **0.6%** |
+| Fusion formula | `mean(url_p, op_p)` | Three-zone asymmetric (see §15.2) |
+| Threshold | 0.45 | **0.50** (not tuned on test set) |
+| HGB operational | unchanged | unchanged (val AUC 0.99985) |
+
+**Why the v1.6.0 URL model was overfit:** Training used 625 benign URLs × 200 repeats and 317 phishing URLs × 150 repeats, making the augmentation dominate the 100K base dataset. AUC on a held-out balanced set was 0.757 (nearly random). Benchmarks appeared strong due to data leakage: the 317 phishing augmentation URLs were the same 317 URLs used in the chain-phish benchmark corpus.
+
+### 15.2 Three-Zone Asymmetric Fusion
+
+The v3 system replaces the flat `mean(url_p, op_p)` formula with a three-zone blend selected by `op_p` and guarded by `url_p`:
+
+| Zone | Condition | Weight |
+|------|-----------|--------|
+| CDN-phishing | op_p < 0.01 | 65% url_p + 35% op_p |
+| Normal | 0.01 ≤ op_p ≤ 0.60 | 60% url_p + 40% op_p |
+| High-operational | op_p > 0.60 **AND url_p ≥ 0.05** | 25% url_p + 75% op_p |
+| High-op guard | op_p > 0.60 AND url_p < 0.05 | → falls back to Normal |
+
+The guard prevents ephemeral-platform deployments (Vercel, Cloudflare Pages) from triggering the high-op amplifier when the URL model sees nothing suspicious (`url_p < 0.05`). Real high-op phishing (DGA/numeric domains) has `url_p ≥ 0.06`. See `fusion_kit/scoring.py` for implementation.
+
+### 15.3 Live Benchmark Results (10 Corpora, 2026-05-18)
+
+All scores use threshold 0.50. Sidecar-only — production Domain Guard allowlist (top-10K apex domains) is not applied here.
+
+**Detection rate:**
+
+| Corpus | Scored | DR |
+|--------|--------|----|
+| Fresh OpenPhish 2026-05-18 (unseen at training) | 286 | **100.0%** |
+| Mixed phishing (OpenPhish + PhishTank + manual) | 307 | **97.5%** |
+| Repo `live_phishing_urls.txt` | 75 | **98.5%** |
+| Subdomain-chain adversarial | 321 | **89.4%** |
+| LegitPhish/PhiUSIIL phishing (subtle) | 150 | **74.7%** |
+| Previously identified FNs | 61 | 16.4% (honest; see §15.1 on prior leakage) |
+
+**False positive rate:**
+
+| Corpus | Scored | FPR |
+|--------|--------|-----|
+| LegitPhish/PhiUSIIL benign test split | 150 | **1.3%** |
+| Hard-benign (platform deployments, diverse) | 627 | 24.6% (prod allowlist covers majority) |
+| Repo `live_benign_urls.txt` | 46 | 26.1% (prod allowlist covers majority) |
+
+### 15.4 Retraining with v3 Parameters
+
+```bash
+python fusion_export/scripts/train_url_model.py \
+  --csv data/cybersiren_lowlatency_dataset.csv \
+  --out fusion_export/models/url_char_lr.joblib \
+  --augment-benign fusion_export/fresh_openphish.txt \
+  --augment-phish-repeat 10 \
+  --augment-benign-repeat 3 \
+  --C 2.0
+```
+
+Do **not** use `augment_chain_phish.txt` for training — it is the chain-phish benchmark test set (data leakage).
